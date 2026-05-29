@@ -297,6 +297,39 @@ export interface IngestMediaOutput {
   size_bytes: number /* int64 */;
 }
 /**
+ * ReadMediaInput reads a media file back as bytes so a sandboxed UI can play or
+ * display it (the iframe can't read server paths directly).
+ */
+export interface ReadMediaInput {
+  /**
+   * Path is the media file to read (must resolve inside an allowed root).
+   */
+  path: string;
+}
+/**
+ * ReadMediaOutput carries the file as a data URI, or reports it was too large.
+ */
+export interface ReadMediaOutput {
+  /**
+   * DataURI is "data:<mime>;base64,<...>" — directly usable as an <img>/<video>
+   * /<audio> src. Empty when Truncated is true.
+   */
+  data_uri?: string;
+  /**
+   * Mime is the detected MIME type.
+   */
+  mime: string;
+  /**
+   * SizeBytes is the file's size on disk.
+   */
+  size_bytes: number /* int64 */;
+  /**
+   * Truncated is true when the file exceeds the inline read cap; DataURI is
+   * then empty and the caller should fall back to a path/poster.
+   */
+  truncated?: boolean;
+}
+/**
  * TransitionStyle selects how one image gives way to the next.
  * Allowed: "none", "fade", "wipe", "slide", "zoom_blur", "film_dissolve",
  * "random_safe".

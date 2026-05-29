@@ -49,6 +49,11 @@ tools:
     input: internal/contracts.IngestMediaInput
     output: internal/contracts.IngestMediaOutput
     task_support: forbidden
+  - name: read_media
+    description: Read a media file under the allowed roots as a size-capped data URI.
+    input: internal/contracts.ReadMediaInput
+    output: internal/contracts.ReadMediaOutput
+    task_support: forbidden
   - name: create_cinematic_image_video
     description: Compile an image sequence into a cinematic slideshow video.
     input: internal/contracts.CreateCinematicImageVideoInput

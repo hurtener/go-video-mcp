@@ -34,6 +34,7 @@
     type CinematicOutput,
     type IngestMediaOutput,
     type ListMediaOutput,
+    type ReadMediaOutput,
     type MediaItem,
   } from './lib/types.js';
 
@@ -56,6 +57,9 @@
   let rendering = $state(false);
   let renderError = $state<string | null>(null);
   let result = $state<CinematicOutput | null>(null);
+  let videoUrl = $state<string | undefined>();
+  let videoTooLarge = $state(false);
+  let lastFetched: string | undefined;
   let displayMode = $state<DisplayMode>('inline');
   let connected = $state(false);
   let connectError = $state<string | null>(null);
@@ -114,6 +118,29 @@
     }
     if (p.displayMode) displayMode = p.displayMode;
   });
+
+  // When a render produces a file, fetch its bytes (read_media) so the reel
+  // plays inline. Guarded by lastFetched so the effect doesn't re-fetch.
+  $effect(() => {
+    const path = result?.render?.output_path;
+    if (path && path !== lastFetched) {
+      lastFetched = path;
+      void fetchPreview(path);
+    }
+  });
+
+  async function fetchPreview(path: string) {
+    videoUrl = undefined;
+    videoTooLarge = false;
+    try {
+      const res = await bridge.callTool<unknown, ReadMediaOutput>('read_media', { path });
+      const out = res.structuredContent;
+      if (out?.truncated) videoTooLarge = true;
+      else if (out?.data_uri) videoUrl = out.data_uri;
+    } catch {
+      /* keep the poster — playback is best-effort */
+    }
+  }
 
   onMount(() => {
     bridge
@@ -276,7 +303,7 @@
     </button>
   </header>
 
-  <Preview {posterUrl} {result} {rendering} {aspect} />
+  <Preview {posterUrl} {result} {rendering} {aspect} {videoUrl} />
 
   {#if connecting}
     <p class="hint" data-state="loading">
@@ -333,6 +360,8 @@
     <div class="banner warn"><Icon name="alert" size={15} /> {connectError}</div>
   {:else if result?.warnings && result.warnings.length}
     <div class="banner warn"><Icon name="alert" size={15} /> {result.warnings.join(' · ')}</div>
+  {:else if videoTooLarge && result}
+    <div class="banner warn"><Icon name="alert" size={15} /> Reel rendered — too large to preview inline; saved to {result.render.output_path}</div>
   {/if}
 
   <button class="render" onclick={render} disabled={rendering || readyClips.length === 0}>

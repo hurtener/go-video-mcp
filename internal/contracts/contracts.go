@@ -189,6 +189,29 @@ type IngestMediaOutput struct {
 	SizeBytes int64 `json:"size_bytes"`
 }
 
+// --- read_media (in-iframe playback) ---------------------------------------
+
+// ReadMediaInput reads a media file back as bytes so a sandboxed UI can play or
+// display it (the iframe can't read server paths directly).
+type ReadMediaInput struct {
+	// Path is the media file to read (must resolve inside an allowed root).
+	Path string `json:"path"`
+}
+
+// ReadMediaOutput carries the file as a data URI, or reports it was too large.
+type ReadMediaOutput struct {
+	// DataURI is "data:<mime>;base64,<...>" — directly usable as an <img>/<video>
+	// /<audio> src. Empty when Truncated is true.
+	DataURI string `json:"data_uri,omitempty"`
+	// Mime is the detected MIME type.
+	Mime string `json:"mime"`
+	// SizeBytes is the file's size on disk.
+	SizeBytes int64 `json:"size_bytes"`
+	// Truncated is true when the file exceeds the inline read cap; DataURI is
+	// then empty and the caller should fall back to a path/poster.
+	Truncated bool `json:"truncated,omitempty"`
+}
+
 // --- create_cinematic_image_video ------------------------------------------
 
 // TransitionStyle selects how one image gives way to the next.

@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "data_uri": {
+      "type": "string"
+    },
+    "mime": {
+      "type": "string"
+    },
+    "size_bytes": {
+      "type": "integer"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "mime",
+    "size_bytes"
+  ],
+  "additionalProperties": false
+}

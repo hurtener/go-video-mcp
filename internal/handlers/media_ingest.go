@@ -164,6 +164,85 @@ func (h *Handlers) IngestMedia(_ context.Context, in contracts.IngestMediaInput)
 	}, nil
 }
 
+// maxReadBytes caps a read_media inline payload (~25 MiB). Larger files report
+// Truncated so the UI falls back to a poster/path rather than shipping a huge
+// base64 blob through the MCP pipe.
+const maxReadBytes = 25 << 20
+
+// ReadMedia returns a media file under the allowed roots as a data URI, so a
+// sandboxed UI can play/display it. Media-only and size-capped.
+func (h *Handlers) ReadMedia(_ context.Context, in contracts.ReadMediaInput) (tool.Result[contracts.ReadMediaOutput], error) {
+	fail := func(err error) (tool.Result[contracts.ReadMediaOutput], error) {
+		return tool.Result[contracts.ReadMediaOutput]{}, fmt.Errorf("read_media: %w", err)
+	}
+	path, err := h.K.ValidatePath(in.Path, kernel.ModeRead)
+	if err != nil {
+		return fail(err)
+	}
+	mime := mimeFor(path)
+	if mime == "" {
+		return fail(fmt.Errorf("unsupported media type %q", filepath.Ext(path)))
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fail(err)
+	}
+	if info.Size() > maxReadBytes {
+		out := contracts.ReadMediaOutput{Mime: mime, SizeBytes: info.Size(), Truncated: true}
+		return tool.Result[contracts.ReadMediaOutput]{
+			Text:       fmt.Sprintf("%s is %d bytes — too large to inline (cap %d); use the path directly", filepath.Base(path), info.Size(), maxReadBytes),
+			Structured: out,
+		}, nil
+	}
+	data, err := os.ReadFile(path) //nolint:gosec // path validated + confined to allowed roots
+	if err != nil {
+		return fail(err)
+	}
+	out := contracts.ReadMediaOutput{
+		DataURI:   "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data),
+		Mime:      mime,
+		SizeBytes: info.Size(),
+	}
+	return tool.Result[contracts.ReadMediaOutput]{
+		Text:       fmt.Sprintf("Read %s (%s, %d bytes)", filepath.Base(path), mime, info.Size()),
+		Structured: out,
+	}, nil
+}
+
+// mimeFor maps a file extension to a MIME type, or "" for non-media.
+func mimeFor(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".webp":
+		return "image/webp"
+	case ".gif":
+		return "image/gif"
+	case ".mp4", ".m4v":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".webm":
+		return "video/webm"
+	case ".mkv":
+		return "video/x-matroska"
+	case ".mp3":
+		return "audio/mpeg"
+	case ".m4a", ".aac":
+		return "audio/mp4"
+	case ".wav":
+		return "audio/wav"
+	case ".flac":
+		return "audio/flac"
+	case ".ogg", ".opus":
+		return "audio/ogg"
+	default:
+		return ""
+	}
+}
+
 // kindFilter builds a set from the requested kinds, or nil for "all".
 func kindFilter(kinds []string) map[string]bool {
 	if len(kinds) == 0 {

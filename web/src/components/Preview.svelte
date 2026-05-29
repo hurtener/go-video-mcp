@@ -12,8 +12,9 @@
     rendering: boolean;
     aspect?: string;
     progress?: number;
+    videoUrl?: string;
   }
-  let { posterUrl, result, rendering, aspect = '16 / 9', progress = 0 }: Props = $props();
+  let { posterUrl, result, rendering, aspect = '16 / 9', progress = 0, videoUrl }: Props = $props();
 
   function fmt(sec: number): string {
     const s = Math.max(0, Math.round(sec));
@@ -24,12 +25,15 @@
 </script>
 
 <div class="stage" style="aspect-ratio: {aspect};">
-  {#if posterUrl}
+  {#if videoUrl}
+    <!-- The rendered reel, played inline via a data URI from read_media. -->
+    <video class="poster" src={videoUrl} poster={posterUrl} controls playsinline></video>
+  {:else if posterUrl}
     <img class="poster" src={posterUrl} alt="preview" />
   {:else}
     <div class="poster empty"><Icon name="film" size={40} /></div>
   {/if}
-  <div class="vignette"></div>
+  <div class="vignette" class:hidden={videoUrl}></div>
 
   {#if rendering}
     <div class="overlay">
@@ -40,11 +44,13 @@
     <div class="done"><Icon name="check" size={13} /> Rendered</div>
   {/if}
 
-  <div class="transport">
-    <button class="play" aria-label="Play" disabled={!result}><Icon name="play" size={14} /></button>
-    <div class="scrub"><div class="fill" style="width: {result ? 60 : 0}%"></div><div class="knob" style="left: {result ? 60 : 0}%"></div></div>
-    <span class="time">{total}</span>
-  </div>
+  {#if !videoUrl}
+    <div class="transport">
+      <button class="play" aria-label="Play" disabled={!result}><Icon name="play" size={14} /></button>
+      <div class="scrub"><div class="fill" style="width: {result ? 60 : 0}%"></div><div class="knob" style="left: {result ? 60 : 0}%"></div></div>
+      <span class="time">{total}</span>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -75,6 +81,12 @@
     pointer-events: none;
     box-shadow: inset 0 0 120px 30px rgba(0, 0, 0, 0.55);
     background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.45));
+  }
+  .vignette.hidden {
+    display: none;
+  }
+  video.poster {
+    background: #000;
   }
   .overlay {
     position: absolute;

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hurtener/go-video-mcp/internal/contracts"
@@ -129,6 +130,41 @@ func TestIngestMedia_Deduplicates(t *testing.T) {
 	r2, _ := h.IngestMedia(context.Background(), contracts.IngestMediaInput{Filename: "p.jpg", DataBase64: data})
 	if r1.Structured.Path == r2.Structured.Path {
 		t.Errorf("duplicate names should not collide: %s", r1.Structured.Path)
+	}
+}
+
+func TestReadMedia_DataURIAndGuards(t *testing.T) {
+	k, root := testKernel(t)
+	img := filepath.Join(root, "p.png")
+	if err := os.WriteFile(img, []byte("\x89PNG\r\n\x1a\nhello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := New(k, root)
+
+	res, err := h.ReadMedia(context.Background(), contracts.ReadMediaInput{Path: img})
+	if err != nil {
+		t.Fatalf("ReadMedia: %v", err)
+	}
+	if res.Structured.Mime != "image/png" {
+		t.Errorf("mime = %q, want image/png", res.Structured.Mime)
+	}
+	if !strings.HasPrefix(res.Structured.DataURI, "data:image/png;base64,") {
+		t.Errorf("unexpected data uri prefix: %.40s", res.Structured.DataURI)
+	}
+	if res.Structured.Truncated {
+		t.Error("small file should not be truncated")
+	}
+
+	// Non-media is rejected.
+	txt := filepath.Join(root, "notes.txt")
+	_ = os.WriteFile(txt, []byte("x"), 0o644)
+	if _, err := h.ReadMedia(context.Background(), contracts.ReadMediaInput{Path: txt}); err == nil {
+		t.Error("expected non-media file to be rejected")
+	}
+
+	// Outside the root is rejected.
+	if _, err := h.ReadMedia(context.Background(), contracts.ReadMediaInput{Path: "/etc/hosts"}); err == nil {
+		t.Error("expected path-escape rejection")
 	}
 }
 

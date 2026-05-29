@@ -99,6 +99,13 @@ export interface IngestMediaOutput {
   size_bytes: number;
 }
 
+export interface ReadMediaOutput {
+  data_uri?: string;
+  mime: string;
+  size_bytes: number;
+  truncated?: boolean;
+}
+
 export interface MediaItem {
   path: string;
   name: string;

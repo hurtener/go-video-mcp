@@ -54,6 +54,13 @@ func registerTools(srv *server.Server, h *handlers.Handlers) error {
 		return err
 	}
 
+	if err := tool.New[contracts.ReadMediaInput, contracts.ReadMediaOutput]("read_media").
+		Describe("Read a media file under the allowed roots as a size-capped data URI, so a sandboxed UI can play or display it.").
+		Handler(h.ReadMedia).
+		Register(srv); err != nil {
+		return err
+	}
+
 	if err := tool.New[contracts.CreateCinematicImageVideoInput, contracts.CreateCinematicImageVideoOutput]("create_cinematic_image_video").
 		Describe("Compile a sequence of images into a cinematic slideshow video: canvas preset, per-image Ken Burns motion, crossfade/wipe/slide transitions, a colour grade, and an optional faded music bed — all in one render. Returns the produced file and the compiled FFmpeg filtergraph.").
 		UI(appName).
