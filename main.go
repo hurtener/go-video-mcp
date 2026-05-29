@@ -108,43 +108,25 @@ func main() {
 // The tools declare .UI(appName) so their results render in this App in the
 // host's chat surface.
 //
-// Domain + HostProfile "claude" make the resources/read response carry
-// _meta.ui.domain — the dedicated, signed <hash>.claudemcpcontent.com origin
-// Claude renders an App iframe from (RFC §7.5). Without it, Claude recognises
-// the tool's _meta.ui link but has no origin to load the iframe into, so the
-// App never paints (it falls back to text). The signed origin is derived from
-// the public server URL; GO_VIDEO_MCP_PUBLIC_URL overrides it for the bridged
-// HTTP setup.
+// NOTE — no _meta.ui.domain. A dedicated/signed sandbox origin
+// (App.Domain + the "claude" host profile) is ONLY valid for a REMOTE connector
+// with a verified URL; Claude rejects it for a LOCAL connector ("ui.domain
+// cannot be used with local connectors") — and a local stdio command, including
+// `npx mcp-remote <url>`, is a local connector. Local connectors render the App
+// in an opaque sandbox with no dedicated origin, so we omit the domain. If this
+// server is ever deployed as a verified remote connector, set Domain +
+// HostProfile: "claude" + ServerURL to opt into a stable origin there.
 func registerApp(srv *server.Server) error {
 	html, err := fs.ReadFile(uiBundle, "web/dist/index.html")
 	if err != nil {
 		return err
 	}
-	prefersBorder := true
 	return apps.Register(srv, apps.App{
-		URI:           appURI,
-		Name:          appName,
-		Title:         "Frameline Studio",
-		HTML:          html,
-		Domain:        appName, // host-agnostic label → signed dedicated origin
-		HostProfile:   "claude",
-		ServerURL:     publicURL(),
-		PrefersBorder: &prefersBorder,
+		URI:   appURI,
+		Name:  appName,
+		Title: "Frameline Studio",
+		HTML:  html,
 	})
-}
-
-// publicURL is the externally-reachable MCP endpoint, used to derive the App's
-// signed Claude content origin. It is GO_VIDEO_MCP_PUBLIC_URL when set, else the
-// HTTP endpoint this server listens on (the address mcp-remote connects to).
-func publicURL() string {
-	if v := strings.TrimSpace(os.Getenv("GO_VIDEO_MCP_PUBLIC_URL")); v != "" {
-		return v
-	}
-	addr := httpAddr
-	if override := strings.TrimSpace(os.Getenv("DOCKYARD_HTTP_ADDR")); override != "" {
-		addr = override
-	}
-	return "http://" + addr + "/mcp"
 }
 
 // allowedRoots reads the filesystem confinement policy from GO_VIDEO_MCP_ROOTS
