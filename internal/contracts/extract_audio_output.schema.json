@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "output_path": {
+      "type": "string"
+    },
+    "job_id": {
+      "type": "string"
+    },
+    "duration_sec": {
+      "type": "number"
+    },
+    "size_bytes": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "output_path",
+    "job_id",
+    "duration_sec",
+    "size_bytes"
+  ],
+  "additionalProperties": false
+}

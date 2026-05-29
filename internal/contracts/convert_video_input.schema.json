@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "properties": {
+    "input_path": {
+      "type": "string"
+    },
+    "output_path": {
+      "type": "string"
+    },
+    "video_codec": {
+      "type": "string"
+    },
+    "audio_codec": {
+      "type": "string"
+    },
+    "crf": {
+      "type": "integer"
+    },
+    "preset": {
+      "type": "string"
+    },
+    "scale": {
+      "type": "string"
+    },
+    "fps": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "input_path",
+    "output_path"
+  ],
+  "additionalProperties": false
+}

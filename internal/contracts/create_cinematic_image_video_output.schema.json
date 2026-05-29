@@ -1,0 +1,66 @@
+{
+  "type": "object",
+  "properties": {
+    "render": {
+      "type": "object",
+      "properties": {
+        "output_path": {
+          "type": "string"
+        },
+        "job_id": {
+          "type": "string"
+        },
+        "duration_sec": {
+          "type": "number"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "size_bytes": {
+          "type": "integer"
+        },
+        "command": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_path",
+        "job_id",
+        "duration_sec",
+        "width",
+        "height",
+        "size_bytes",
+        "command"
+      ],
+      "additionalProperties": false
+    },
+    "image_count": {
+      "type": "integer"
+    },
+    "per_image_seconds": {
+      "type": "number"
+    },
+    "filter_complex": {
+      "type": "string"
+    },
+    "warnings": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "render",
+    "image_count",
+    "per_image_seconds",
+    "filter_complex"
+  ],
+  "additionalProperties": false
+}

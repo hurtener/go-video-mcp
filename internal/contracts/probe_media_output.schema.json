@@ -1,0 +1,60 @@
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string"
+    },
+    "format_name": {
+      "type": "string"
+    },
+    "duration_sec": {
+      "type": "number"
+    },
+    "size_bytes": {
+      "type": "integer"
+    },
+    "bit_rate": {
+      "type": "integer"
+    },
+    "has_video": {
+      "type": "boolean"
+    },
+    "has_audio": {
+      "type": "boolean"
+    },
+    "width": {
+      "type": "integer"
+    },
+    "height": {
+      "type": "integer"
+    },
+    "fps": {
+      "type": "number"
+    },
+    "video_codec": {
+      "type": "string"
+    },
+    "audio_codec": {
+      "type": "string"
+    },
+    "streams": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path",
+    "format_name",
+    "duration_sec",
+    "size_bytes",
+    "bit_rate",
+    "has_video",
+    "has_audio",
+    "width",
+    "height",
+    "fps",
+    "video_codec",
+    "audio_codec",
+    "streams"
+  ],
+  "additionalProperties": false
+}

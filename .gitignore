@@ -1,0 +1,33 @@
+# Build artifacts
+/dist/
+/bin/
+*.exe
+*.test
+*.out
+coverage.out
+
+# Dockyard / Go
+go.work
+go.work.sum
+
+# Frontend (MCP App)
+web/node_modules/
+web/dist/
+node_modules/
+
+# Generated media / scratch output from local runs
+/output/
+/tmp/
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.gif
+# keep small test fixtures explicitly via: git add -f testdata/...
+!testdata/**
+
+# OS / editor cruft
+.DS_Store
+*.swp
+.idea/
+.vscode/

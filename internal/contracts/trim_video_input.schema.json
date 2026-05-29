@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "input_path": {
+      "type": "string"
+    },
+    "output_path": {
+      "type": "string"
+    },
+    "start_seconds": {
+      "type": "number"
+    },
+    "end_seconds": {
+      "type": "number"
+    },
+    "re_encode": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "input_path",
+    "output_path",
+    "end_seconds"
+  ],
+  "additionalProperties": false
+}

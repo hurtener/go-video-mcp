@@ -1,0 +1,93 @@
+{
+  "type": "object",
+  "properties": {
+    "images": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "output_path": {
+      "type": "string"
+    },
+    "canvas": {
+      "type": "string"
+    },
+    "fps": {
+      "type": "integer"
+    },
+    "duration_per_image": {
+      "type": "number"
+    },
+    "total_duration": {
+      "type": "number"
+    },
+    "transition_style": {
+      "type": "string"
+    },
+    "transition_seconds": {
+      "type": "number"
+    },
+    "motion_style": {
+      "type": "string"
+    },
+    "color_grade": {
+      "type": "string"
+    },
+    "background_audio": {
+      "type": "string"
+    },
+    "audio_fade_in_seconds": {
+      "type": "number"
+    },
+    "audio_fade_out_seconds": {
+      "type": "number"
+    },
+    "captions": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "start_seconds": {
+            "type": "number"
+          },
+          "end_seconds": {
+            "type": "number"
+          },
+          "position": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "start_seconds",
+          "end_seconds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "watermark": {
+      "type": "string"
+    },
+    "beat_sync": {
+      "type": "boolean"
+    },
+    "safe_area": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "images",
+    "output_path"
+  ],
+  "additionalProperties": false
+}

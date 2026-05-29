@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "input_path": {
+      "type": "string"
+    },
+    "output_path": {
+      "type": "string"
+    },
+    "bitrate": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "input_path",
+    "output_path"
+  ],
+  "additionalProperties": false
+}
