@@ -18,13 +18,18 @@ import (
 	"github.com/hurtener/go-video-mcp/internal/kernel"
 )
 
-// Handlers carries the shared kernel every tool handler runs against.
+// Handlers carries the shared kernel every tool handler runs against, plus the
+// work directory where uploaded media is persisted (ingest_media writes here;
+// it must be inside an allowed root).
 type Handlers struct {
-	K *kernel.Kernel
+	K       *kernel.Kernel
+	WorkDir string
 }
 
-// New constructs the handler set bound to a kernel.
-func New(k *kernel.Kernel) *Handlers { return &Handlers{K: k} }
+// New constructs the handler set bound to a kernel and an ingest work dir.
+func New(k *kernel.Kernel, workDir string) *Handlers {
+	return &Handlers{K: k, WorkDir: workDir}
+}
 
 // ProbeMedia inspects a media file and returns typed facts.
 func (h *Handlers) ProbeMedia(ctx context.Context, in contracts.ProbeMediaInput) (tool.Result[contracts.ProbeMediaOutput], error) {

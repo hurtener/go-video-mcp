@@ -33,7 +33,7 @@ func TestCinematicHandlerE2E(t *testing.T) {
 	if err != nil {
 		t.Fatalf("kernel.New: %v", err)
 	}
-	h := handlers.New(k)
+	h := handlers.New(k, root)
 
 	res, err := h.CreateCinematicImageVideo(context.Background(), contracts.CreateCinematicImageVideoInput{
 		Images:          imgs,

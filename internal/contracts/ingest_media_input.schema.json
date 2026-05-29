@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "filename": {
+      "type": "string"
+    },
+    "data_base64": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "filename",
+    "data_base64"
+  ],
+  "additionalProperties": false
+}

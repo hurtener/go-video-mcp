@@ -33,6 +33,16 @@ tools:
     input: internal/contracts.ExtractAudioInput
     output: internal/contracts.ExtractAudioOutput
     task_support: forbidden
+  - name: list_media
+    description: Browse media files under the server's allowed roots.
+    input: internal/contracts.ListMediaInput
+    output: internal/contracts.ListMediaOutput
+    task_support: forbidden
+  - name: ingest_media
+    description: Persist a UI-uploaded file (base64) and return a readable path.
+    input: internal/contracts.IngestMediaInput
+    output: internal/contracts.IngestMediaOutput
+    task_support: forbidden
   - name: create_cinematic_image_video
     description: Compile an image sequence into a cinematic slideshow video.
     input: internal/contracts.CreateCinematicImageVideoInput

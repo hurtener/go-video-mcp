@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "dir": {
+      "type": "string"
+    },
+    "kinds": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -18,6 +18,7 @@ node_modules/
 # Generated media / scratch output from local runs
 /output/
 /tmp/
+/frameline-work/
 *.mp4
 *.mov
 *.mkv

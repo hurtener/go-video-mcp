@@ -204,6 +204,99 @@ export interface ExtractAudioOutput {
   size_bytes: number /* int64 */;
 }
 /**
+ * MediaItem describes one media file the server can read.
+ */
+export interface MediaItem {
+  /**
+   * Path is the absolute, validated path (feed it straight to other tools).
+   */
+  path: string;
+  /**
+   * Name is the file's base name.
+   */
+  name: string;
+  /**
+   * Kind is the media class: "image", "audio", or "video".
+   */
+  kind: string;
+  /**
+   * Ext is the lower-case extension including the dot (e.g. ".jpg").
+   */
+  ext: string;
+  /**
+   * SizeBytes is the file size.
+   */
+  size_bytes: number /* int64 */;
+}
+/**
+ * ListMediaInput browses media files under the server's allowed roots.
+ */
+export interface ListMediaInput {
+  /**
+   * Dir optionally restricts the listing to a subdirectory (must resolve
+   * inside an allowed root). Empty lists across all allowed roots.
+   */
+  dir?: string;
+  /**
+   * Kinds optionally filters by media class ("image", "audio", "video").
+   * Empty returns all media kinds.
+   */
+  kinds?: string[];
+}
+/**
+ * ListMediaOutput is the result of a media listing.
+ */
+export interface ListMediaOutput {
+  /**
+   * Items are the media files found (capped; see Truncated).
+   */
+  items: MediaItem[];
+  /**
+   * Roots are the allowed roots that were searched.
+   */
+  roots: string[];
+  /**
+   * Truncated is true when the listing hit the item cap and more files exist.
+   */
+  truncated?: boolean;
+}
+/**
+ * IngestMediaInput accepts a file uploaded through the UI (base64 bytes) and
+ * persists it under the server's work directory so other tools can read it by
+ * path. This is how a host-side drag-and-drop becomes a server-side file.
+ */
+export interface IngestMediaInput {
+  /**
+   * Filename is the original file name; only its base name is used.
+   */
+  filename: string;
+  /**
+   * DataBase64 is the file's bytes, base64-encoded (std encoding).
+   */
+  data_base64: string;
+}
+/**
+ * IngestMediaOutput reports where the uploaded file landed.
+ */
+export interface IngestMediaOutput {
+  /**
+   * Path is the validated path of the persisted file.
+   */
+  path: string;
+  /**
+   * Name is the (possibly de-duplicated) base name written.
+   */
+  name: string;
+  /**
+   * Kind is the detected media class.
+   */
+  kind: string;
+  /**
+   * SizeBytes is the persisted size.
+   */
+  size_bytes: number /* int64 */;
+}
+/**
  * TransitionStyle selects how one image gives way to the next.
  * Allowed: "none", "fade", "wipe", "slide", "zoom_blur", "film_dissolve",
  * "random_safe".

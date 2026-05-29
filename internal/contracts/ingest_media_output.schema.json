@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "size_bytes": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path",
+    "name",
+    "kind",
+    "size_bytes"
+  ],
+  "additionalProperties": false
+}

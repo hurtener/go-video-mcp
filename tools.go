@@ -40,6 +40,20 @@ func registerTools(srv *server.Server, h *handlers.Handlers) error {
 		return err
 	}
 
+	if err := tool.New[contracts.ListMediaInput, contracts.ListMediaOutput]("list_media").
+		Describe("Browse media files (images, audio, video) under the server's allowed roots, optionally filtered by directory or kind.").
+		Handler(h.ListMedia).
+		Register(srv); err != nil {
+		return err
+	}
+
+	if err := tool.New[contracts.IngestMediaInput, contracts.IngestMediaOutput]("ingest_media").
+		Describe("Persist a file uploaded through the UI (base64 bytes) into the server work directory and return a path other tools can read.").
+		Handler(h.IngestMedia).
+		Register(srv); err != nil {
+		return err
+	}
+
 	if err := tool.New[contracts.CreateCinematicImageVideoInput, contracts.CreateCinematicImageVideoOutput]("create_cinematic_image_video").
 		Describe("Compile a sequence of images into a cinematic slideshow video: canvas preset, per-image Ken Burns motion, crossfade/wipe/slide transitions, a colour grade, and an optional faded music bed — all in one render. Returns the produced file and the compiled FFmpeg filtergraph.").
 		Handler(h.CreateCinematicImageVideo).

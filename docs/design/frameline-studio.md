@@ -200,22 +200,31 @@ media folder" + the host's grant affordance.)
 
 ## 7. Build notes — reusable components
 
-Compose, don't hand-roll. Everything below is Svelte 5 + Tailwind v4, which is
-Dockyard's stack.
+Compose, don't hand-roll. **Dockyard's stack is `@dockyard/ui` components +
+`--dy-*` design tokens, not Tailwind/shadcn** — and the App ships as a single
+**iife** bundle (the sandboxed iframe has no `allow-same-origin`, so module
+scripts won't run). So we compose the Dockyard design system and add a couple of
+focused libraries, all bundled into the single file.
 
-| Need | Library |
-| ---- | ------- |
-| Buttons, selects, sliders, tabs, dialog, tooltip, cards | **shadcn-svelte** (on **bits-ui** + Tailwind v4) |
+| Need | Choice |
+| ---- | ------ |
+| Chrome + the four states (loading/empty/error/permission) | **`@dockyard/ui`** — `PageState`, `ActionBar`, `StatusChip`, `CodeBlock` (for the "recipe"), `AppShell` (fullscreen later) |
 | Reorderable filmstrip / timeline (accessible, any input) | **svelte-dnd-action** |
-| Upload dropzone | **filedrop-svelte** (or svelte-file-dropzone) |
-| Audio waveform + beat markers | **wavesurfer.js** |
-| Preview player | native `<video>` (upgrade to **vidstack** if we want chapters/skins) |
-| Icons | **Lucide** (ships with shadcn-svelte) |
+| Upload dropzone | native HTML5 drag-drop + File API (no extra dep needed); `filedrop-svelte` optional |
+| Audio waveform + beat markers | **wavesurfer.js** (bundled) |
+| Preview player | native `<video>` |
+| Buttons / chips / sliders not in `@dockyard/ui` | hand-styled with `--dy-*` tokens + the §3 cinematic fallback |
 
-Theme: read host CSS custom properties; map to the tokens in §3 with the
-cinematic palette as fallback. CSP stays deny-by-default (single-file bundle, no
-external origins) unless we add `wavesurfer`/fonts via a declared origin or
-bundle them.
+**Bridge:** `createBridge({ displayModes: ['inline'] })`; receive via
+`onToolResult` / `onToolInput`; **call tools via `bridge.callTool(name, args)`**
+(`ingest_media`, `list_media`, `create_cinematic_image_video`). `@dockyard/bridge`
+and `@dockyard/ui` are workspace `file:` deps — the `web/` build needs the local
+Dockyard checkout (`--dockyard-path`); the Go side stays on the published module.
+
+**Theme:** apply the host's `styles.variables` to the root (the bridge
+propagates them); the §3 cinematic palette is the fallback when the host supplies
+none. **CSP** stays deny-by-default — everything (wavesurfer, fonts) is bundled
+into the single file, so `connect: []` / `resource: []` holds.
 
 ---
 

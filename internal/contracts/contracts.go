@@ -131,6 +131,64 @@ type ExtractAudioOutput struct {
 	SizeBytes int64 `json:"size_bytes"`
 }
 
+// --- list_media / ingest_media (Frameline Studio media intake) -------------
+
+// MediaItem describes one media file the server can read.
+type MediaItem struct {
+	// Path is the absolute, validated path (feed it straight to other tools).
+	Path string `json:"path"`
+	// Name is the file's base name.
+	Name string `json:"name"`
+	// Kind is the media class: "image", "audio", or "video".
+	Kind string `json:"kind"`
+	// Ext is the lower-case extension including the dot (e.g. ".jpg").
+	Ext string `json:"ext"`
+	// SizeBytes is the file size.
+	SizeBytes int64 `json:"size_bytes"`
+}
+
+// ListMediaInput browses media files under the server's allowed roots.
+type ListMediaInput struct {
+	// Dir optionally restricts the listing to a subdirectory (must resolve
+	// inside an allowed root). Empty lists across all allowed roots.
+	Dir string `json:"dir,omitempty"`
+	// Kinds optionally filters by media class ("image", "audio", "video").
+	// Empty returns all media kinds.
+	Kinds []string `json:"kinds,omitempty"`
+}
+
+// ListMediaOutput is the result of a media listing.
+type ListMediaOutput struct {
+	// Items are the media files found (capped; see Truncated).
+	Items []MediaItem `json:"items"`
+	// Roots are the allowed roots that were searched.
+	Roots []string `json:"roots"`
+	// Truncated is true when the listing hit the item cap and more files exist.
+	Truncated bool `json:"truncated,omitempty"`
+}
+
+// IngestMediaInput accepts a file uploaded through the UI (base64 bytes) and
+// persists it under the server's work directory so other tools can read it by
+// path. This is how a host-side drag-and-drop becomes a server-side file.
+type IngestMediaInput struct {
+	// Filename is the original file name; only its base name is used.
+	Filename string `json:"filename"`
+	// DataBase64 is the file's bytes, base64-encoded (std encoding).
+	DataBase64 string `json:"data_base64"`
+}
+
+// IngestMediaOutput reports where the uploaded file landed.
+type IngestMediaOutput struct {
+	// Path is the validated path of the persisted file.
+	Path string `json:"path"`
+	// Name is the (possibly de-duplicated) base name written.
+	Name string `json:"name"`
+	// Kind is the detected media class.
+	Kind string `json:"kind"`
+	// SizeBytes is the persisted size.
+	SizeBytes int64 `json:"size_bytes"`
+}
+
 // --- create_cinematic_image_video ------------------------------------------
 
 // TransitionStyle selects how one image gives way to the next.

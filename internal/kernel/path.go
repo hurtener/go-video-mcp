@@ -142,6 +142,40 @@ func (k *Kernel) withinAllowedRoot(resolved string) bool {
 	return false
 }
 
+// Roots returns a copy of the kernel's allowed roots (symlink-resolved).
+func (k *Kernel) Roots() []string {
+	out := make([]string, len(k.cfg.AllowedRoots))
+	copy(out, k.cfg.AllowedRoots)
+	return out
+}
+
+// ValidateDir resolves p to an existing directory confined to an allowed root.
+// Used by media browsing, where the target is a directory rather than a file.
+func (k *Kernel) ValidateDir(p string) (string, error) {
+	if strings.TrimSpace(p) == "" {
+		return "", fmt.Errorf("%w: empty directory", ErrPathMissing)
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", fmt.Errorf("resolve %q: %w", p, err)
+	}
+	resolved, err := resolveExisting(filepath.Clean(abs))
+	if err != nil {
+		return "", err
+	}
+	if !k.withinAllowedRoot(resolved) {
+		return "", fmt.Errorf("%w: %s", ErrPathEscape, abs)
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrPathMissing, abs)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("%s is not a directory", abs)
+	}
+	return resolved, nil
+}
+
 // ResolveArtifact turns a user-supplied artifact reference (a plain path or a
 // file:// URI) into a concrete local path, then validates it for reading. V1
 // resolves local artifacts only; a remote scheme is a clear, explained error

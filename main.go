@@ -53,7 +53,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := registerTools(srv, handlers.New(k)); err != nil {
+	workDir, err := ensureWorkDir(k)
+	if err != nil {
+		logger.Error("prepare work directory", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	if err := registerTools(srv, handlers.New(k, workDir)); err != nil {
 		logger.Error("register tools", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
@@ -80,6 +86,25 @@ func allowedRoots() []string {
 		}
 	}
 	return roots
+}
+
+// ensureWorkDir returns (creating if needed) the directory where ingest_media
+// persists uploaded files. It is GO_VIDEO_MCP_WORK_DIR when set, otherwise a
+// "frameline-work" folder inside the first allowed root — so it is always
+// inside the kernel's confinement and writable by the ingest tool.
+func ensureWorkDir(k *kernel.Kernel) (string, error) {
+	dir := strings.TrimSpace(os.Getenv("GO_VIDEO_MCP_WORK_DIR"))
+	if dir == "" {
+		roots := k.Roots()
+		if len(roots) == 0 {
+			return "", errors.New("no allowed roots configured")
+		}
+		dir = filepath.Join(roots[0], "frameline-work")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, nil
 }
 
 // serve brings up the transport named by DOCKYARD_TRANSPORT. An unset or
