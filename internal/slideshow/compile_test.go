@@ -131,6 +131,45 @@ func TestCompile_AudioBed(t *testing.T) {
 	}
 }
 
+// Captions become looped overlay inputs with time-gated overlay=0:0 chains,
+// composited after the grade and before the final [vout].
+func TestCompile_CaptionOverlays(t *testing.T) {
+	spec := Spec{
+		Images:          []string{"a.jpg", "b.jpg"},
+		Width:           1280,
+		Height:          720,
+		FPS:             30,
+		SecondsPerImage: 3,
+		Transition:      TransitionNone,
+		Motion:          MotionNone,
+		Captions: []CaptionOverlay{
+			{Path: "cap0.png", StartSeconds: 0, EndSeconds: 2.5},
+		},
+		Output: "o.mp4",
+	}
+	plan, err := Compile(spec)
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	// 2 images + 1 caption overlay input.
+	if len(plan.Inputs) != 3 {
+		t.Fatalf("want 3 inputs (2 img + 1 caption), got %d", len(plan.Inputs))
+	}
+	if !plan.Inputs[2].Loop || plan.Inputs[2].Path != "cap0.png" {
+		t.Errorf("caption input not looped/correct: %+v", plan.Inputs[2])
+	}
+	g := plan.Graph.String()
+	if !strings.Contains(g, "[2:v]format=rgba[cap0]") {
+		t.Errorf("missing caption format chain in:\n%s", g)
+	}
+	if !strings.Contains(g, "overlay=0:0:enable='between(t,0,2.5)'") {
+		t.Errorf("missing time-gated overlay in:\n%s", g)
+	}
+	if !strings.Contains(g, "[cov0]setsar=1,format=yuv420p[vout]") {
+		t.Errorf("captions should compose before the final [vout] in:\n%s", g)
+	}
+}
+
 func TestCompile_Errors(t *testing.T) {
 	if _, err := Compile(Spec{Width: 1920, Height: 1080, FPS: 30, SecondsPerImage: 4}); err == nil {
 		t.Error("expected error for no images")

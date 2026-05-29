@@ -3,10 +3,12 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/hurtener/dockyard/runtime/tool"
 
+	"github.com/hurtener/go-video-mcp/internal/captions"
 	"github.com/hurtener/go-video-mcp/internal/contracts"
 	"github.com/hurtener/go-video-mcp/internal/kernel"
 	"github.com/hurtener/go-video-mcp/internal/slideshow"
@@ -111,6 +113,14 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		}
 	}
 
+	// Captions (V4): rasterise each to a full-canvas overlay PNG (pure Go) and
+	// hand the compiler the paths + time windows. captionWarn surfaces any
+	// reason captions were skipped.
+	capOverlays, captionWarn, err := h.buildCaptions(in.Captions, w, hh)
+	if err != nil {
+		return fail(err)
+	}
+
 	spec := slideshow.Spec{
 		Images:              images,
 		Width:               w,
@@ -124,6 +134,7 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		AudioPath:           audioPath,
 		AudioFadeInSeconds:  in.AudioFadeInSeconds,
 		AudioFadeOutSeconds: in.AudioFadeOutSeconds,
+		Captions:            capOverlays,
 		Output:              output,
 	}
 	plan, err := slideshow.Compile(spec)
@@ -140,12 +151,16 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		return fail(err)
 	}
 
+	warnings := plannedWarnings(in)
+	if captionWarn != "" {
+		warnings = append(warnings, captionWarn)
+	}
 	out := contracts.CreateCinematicImageVideoOutput{
 		Render:          ro,
 		ImageCount:      len(images),
 		PerImageSeconds: perImage,
 		FilterComplex:   plan.Graph.String(),
-		Warnings:        plannedWarnings(in),
+		Warnings:        warnings,
 	}
 	text := fmt.Sprintf("Rendered a %.1fs cinematic reel from %d images (%dx%d @ %dfps) → %s",
 		ro.DurationSec, out.ImageCount, ro.Width, ro.Height, fps, ro.OutputPath)
@@ -177,9 +192,6 @@ func resolveDuration(in contracts.CreateCinematicImageVideoInput, n int, transSe
 // dropped.
 func plannedWarnings(in contracts.CreateCinematicImageVideoInput) []string {
 	var w []string
-	if len(in.Captions) > 0 {
-		w = append(w, fmt.Sprintf("captions (%d) are accepted but not yet burned in (planned: caption layer)", len(in.Captions)))
-	}
 	if in.Watermark != "" {
 		w = append(w, "watermark is accepted but not yet rendered (planned)")
 	}
@@ -198,4 +210,95 @@ func evenInt(n int) int {
 		return n + 1
 	}
 	return n
+}
+
+// buildCaptions rasterises each requested caption to a full-canvas overlay PNG
+// in the work dir and returns the overlays for the compiler. The second return
+// is a non-fatal warning (e.g. no font available) so captions degrade
+// gracefully rather than failing the whole render.
+func (h *Handlers) buildCaptions(caps []contracts.Caption, w, hh int) ([]slideshow.CaptionOverlay, string, error) {
+	if len(caps) == 0 {
+		return nil, "", nil
+	}
+	if h.WorkDir == "" {
+		return nil, "captions requested but no work directory is configured; captions skipped", nil
+	}
+	fontPath, ok := resolveFont()
+	if !ok {
+		return nil, "captions requested but no usable font was found (set GO_VIDEO_MCP_FONT to a .ttf/.otf); captions skipped", nil
+	}
+	font, err := captions.LoadFont(fontPath)
+	if err != nil {
+		return nil, fmt.Sprintf("captions skipped — could not load font %q: %v", fontPath, err), nil
+	}
+
+	var overlays []slideshow.CaptionOverlay
+	for i, c := range caps {
+		if strings.TrimSpace(c.Text) == "" || c.EndSeconds <= c.StartSeconds {
+			continue // skip empty / zero-length captions
+		}
+		png, rerr := captions.Render(font, captions.Spec{
+			Text:     c.Text,
+			Position: capPosition(c.Position),
+			CanvasW:  w,
+			CanvasH:  hh,
+		})
+		if rerr != nil {
+			continue
+		}
+		dst := uniquePath(h.WorkDir, fmt.Sprintf("caption-%d.png", i))
+		validated, verr := h.K.ValidatePath(dst, kernel.ModeWrite)
+		if verr != nil {
+			return nil, "", verr
+		}
+		if werr := os.WriteFile(validated, png, 0o644); werr != nil {
+			return nil, "", fmt.Errorf("write caption overlay: %w", werr)
+		}
+		overlays = append(overlays, slideshow.CaptionOverlay{
+			Path:         validated,
+			StartSeconds: c.StartSeconds,
+			EndSeconds:   c.EndSeconds,
+		})
+	}
+	return overlays, "", nil
+}
+
+// capPosition maps a contract position string to a captions.Position.
+func capPosition(p string) captions.Position {
+	switch strings.ToLower(strings.TrimSpace(p)) {
+	case "top":
+		return captions.PositionTop
+	case "center", "centre", "middle":
+		return captions.PositionCenter
+	default:
+		return captions.PositionLowerThird
+	}
+}
+
+// fontCandidates is the default allowlist of system fonts, tried in order. The
+// server never accepts an arbitrary user font path from a tool call; an
+// operator widens the allowlist via GO_VIDEO_MCP_FONT.
+var fontCandidates = []string{
+	"/System/Library/Fonts/Supplemental/Arial.ttf",
+	"/System/Library/Fonts/Supplemental/Helvetica.ttf",
+	"/Library/Fonts/Arial.ttf",
+	"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+	"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+	"/usr/share/fonts/TTF/DejaVuSans.ttf",
+}
+
+// resolveFont returns the first usable font path: GO_VIDEO_MCP_FONT if set and
+// present, otherwise the first existing default candidate.
+func resolveFont() (string, bool) {
+	if p := strings.TrimSpace(os.Getenv("GO_VIDEO_MCP_FONT")); p != "" {
+		if info, err := os.Stat(p); err == nil && info.Mode().IsRegular() {
+			return p, true
+		}
+	}
+	for _, p := range fontCandidates {
+		if info, err := os.Stat(p); err == nil && info.Mode().IsRegular() {
+			return p, true
+		}
+	}
+	return "", false
 }

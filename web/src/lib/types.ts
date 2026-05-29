@@ -34,6 +34,21 @@ export const GRADE_OPTIONS = [
   { value: 'high_contrast', label: 'High Contrast' },
 ] as const;
 
+export const CAPTION_POSITIONS = [
+  { value: 'lower_third', label: 'Lower third' },
+  { value: 'top', label: 'Top' },
+  { value: 'center', label: 'Center' },
+] as const;
+
+// UICaption is the editor row; it maps to the contract Caption on render.
+export interface UICaption {
+  id: string;
+  text: string;
+  start: number;
+  end: number;
+  position: string;
+}
+
 // --- Editor state ----------------------------------------------------------
 
 export type ClipStatus = 'uploading' | 'ready' | 'error';
@@ -90,6 +105,7 @@ export interface CinematicInput {
   background_audio?: string;
   audio_fade_in_seconds?: number;
   audio_fade_out_seconds?: number;
+  captions?: Array<{ text: string; start_seconds: number; end_seconds: number; position: string }>;
 }
 
 export interface IngestMediaOutput {

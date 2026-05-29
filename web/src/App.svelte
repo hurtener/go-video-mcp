@@ -18,6 +18,7 @@
   import Chip from './components/Chip.svelte';
   import Filmstrip from './components/Filmstrip.svelte';
   import AudioStrip from './components/AudioStrip.svelte';
+  import CaptionsEditor from './components/CaptionsEditor.svelte';
   import Preview from './components/Preview.svelte';
   import Recipe from './components/Recipe.svelte';
   import { applyHostVariables } from './theme.js';
@@ -36,6 +37,7 @@
     type ListMediaOutput,
     type ReadMediaOutput,
     type MediaItem,
+    type UICaption,
   } from './lib/types.js';
 
   // --- editor state --------------------------------------------------------
@@ -52,6 +54,7 @@
   let secondsPerImage = $state(4);
   let transitionSeconds = $state(1);
   let advancedOpen = $state(false);
+  let captionRows = $state<UICaption[]>([]);
 
   // --- runtime state -------------------------------------------------------
   let rendering = $state(false);
@@ -92,6 +95,15 @@
     if (input.color_grade) grade = input.color_grade;
     if (input.transition_seconds) transitionSeconds = input.transition_seconds;
     if (input.duration_per_image) secondsPerImage = input.duration_per_image;
+    if (Array.isArray(input.captions) && captionRows.length === 0) {
+      captionRows = input.captions.map((c) => ({
+        id: nextId(),
+        text: c.text ?? '',
+        start: c.start_seconds ?? 0,
+        end: c.end_seconds ?? 3,
+        position: c.position ?? 'lower_third',
+      }));
+    }
     if (Array.isArray(input.images) && clips.length === 0) {
       clips = input.images.map((p) => ({
         id: nextId(),
@@ -260,6 +272,10 @@
       args.audio_fade_in_seconds = fadeIn;
       args.audio_fade_out_seconds = fadeOut;
     }
+    const caps = captionRows
+      .filter((c) => c.text.trim() && c.end > c.start)
+      .map((c) => ({ text: c.text, start_seconds: c.start, end_seconds: c.end, position: c.position }));
+    if (caps.length) args.captions = caps;
     try {
       const res = await bridge.callTool<CinematicInput, CinematicOutput>(
         'create_cinematic_image_video',
@@ -353,6 +369,8 @@
   </div>
 
   <AudioStrip {audio} bind:fadeIn bind:fadeOut onPick={addAudio} onClear={clearAudio} />
+
+  <CaptionsEditor bind:captions={captionRows} />
 
   {#if renderError}
     <div class="banner error"><Icon name="alert" size={15} /> {renderError}</div>

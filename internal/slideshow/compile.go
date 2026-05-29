@@ -41,8 +41,22 @@ type Spec struct {
 	// AudioFadeInSeconds / AudioFadeOutSeconds add fades to the audio bed.
 	AudioFadeInSeconds  float64
 	AudioFadeOutSeconds float64
+	// Captions are pre-rendered, full-canvas overlay PNGs with time windows.
+	// Each is overlaid at 0:0 gated by `between(t, start, end)`. The handler
+	// rasterises the text (pure Go) and writes the PNGs; the compiler only
+	// composes them — keeping it pure and golden-testable.
+	Captions []CaptionOverlay
 	// Output is the destination file path (already validated for writing).
 	Output string
+}
+
+// CaptionOverlay is one rendered caption: a full-canvas PNG and the time window
+// it is shown for.
+type CaptionOverlay struct {
+	// Path is the already-validated overlay PNG (full canvas, transparent).
+	Path string
+	// StartSeconds / EndSeconds bound when the overlay is visible.
+	StartSeconds, EndSeconds float64
 }
 
 // ErrNoImages is returned when a Spec carries no images.
@@ -93,15 +107,45 @@ func Compile(s Spec) (kernel.Plan, error) {
 		})
 	}
 
-	// Merge the segments into a single video stream.
-	merged := mergeSegments(graph, n, s.Transition, dur, trans, blended)
+	total := totalDuration(n, dur, trans, blended)
 
-	// Optional colour grade, then a final normalisation to a stable [vout].
-	last := merged
+	// Merge the segments into a single video stream, then colour grade.
+	last := mergeSegments(graph, n, s.Transition, dur, trans, blended)
 	if gf := gradeFilters(s.Grade); len(gf) > 0 {
 		graph.Add(kernel.FilterChain{Inputs: []string{last}, Filters: gf, Outputs: []string{"vgraded"}})
 		last = "vgraded"
 	}
+
+	// Audio bed input is appended first so caption input indices are
+	// deterministic regardless of whether audio is present.
+	hasAudio := s.AudioPath != ""
+	if hasAudio {
+		audioIdx := len(plan.Inputs)
+		plan.Inputs = append(plan.Inputs, kernel.Input{Path: s.AudioPath})
+		graph.Add(audioChain(audioIdx, total, s.AudioFadeInSeconds, s.AudioFadeOutSeconds))
+	}
+
+	// Caption overlays: each pre-rendered PNG is a looped full-canvas input,
+	// overlaid at 0:0 and gated to its time window.
+	for i, c := range s.Captions {
+		capIdx := len(plan.Inputs)
+		plan.Inputs = append(plan.Inputs, kernel.Input{Path: c.Path, Loop: true, Duration: total})
+		capLabel := fmt.Sprintf("cap%d", i)
+		graph.Add(kernel.FilterChain{
+			Inputs:  []string{fmt.Sprintf("%d:v", capIdx)},
+			Filters: []string{"format=rgba"},
+			Outputs: []string{capLabel},
+		})
+		out := fmt.Sprintf("cov%d", i)
+		graph.Add(kernel.FilterChain{
+			Inputs:  []string{last, capLabel},
+			Filters: []string{fmt.Sprintf("overlay=0:0:enable='between(t,%s,%s)'", f(c.StartSeconds), f(c.EndSeconds))},
+			Outputs: []string{out},
+		})
+		last = out
+	}
+
+	// Final normalisation to a stable [vout].
 	graph.Add(kernel.FilterChain{
 		Inputs:  []string{last},
 		Filters: []string{"setsar=1", "format=yuv420p"},
@@ -117,13 +161,7 @@ func Compile(s Spec) (kernel.Plan, error) {
 		"-r", fmt.Sprintf("%d", s.FPS),
 		"-movflags", "+faststart",
 	}
-
-	// Optional audio bed.
-	if s.AudioPath != "" {
-		total := totalDuration(n, dur, trans, blended)
-		audioIdx := len(plan.Inputs)
-		plan.Inputs = append(plan.Inputs, kernel.Input{Path: s.AudioPath})
-		graph.Add(audioChain(audioIdx, total, s.AudioFadeInSeconds, s.AudioFadeOutSeconds))
+	if hasAudio {
 		plan.Maps = append(plan.Maps, "[aout]")
 		plan.Out = append(plan.Out, "-c:a", "aac", "-b:a", "192k", "-shortest")
 	}

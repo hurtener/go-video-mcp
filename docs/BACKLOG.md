@@ -23,9 +23,14 @@ don't get lost. Grouped by area; rough priority noted. Checked items are done.
 - [ ] Graceful **no-host state** — when opened standalone (no MCP host), show a
       clear "waiting for host" message and a short handshake timeout instead of a
       blank stage for 30s.
-- [ ] **Render progress in the UI** — stream ffmpeg `-progress` (% / frame) to the
-      card; needs `task_support` + progress notifications (today render is sync).
-      Unlocks the PiP "Rendering… 62%" pill.
+- [ ] **Render progress in the UI** — blocked on a Dockyard bridge feature: the
+      server can report progress via `TaskHandle.Progress`, but the View-side
+      `@dockyard/bridge` has no task-progress notification — only
+      `sendElicitationResponse`. So task progress reaches the *host* task UI, not
+      the embedded card. Options: (a) upstream a bridge progress notification in
+      Dockyard, then show "Rendering… %" in the card; (b) for now, run the tool as
+      a task (`task_support: optional`) so progress shows in the host/inspector
+      Tasks panel while the card keeps its indeterminate spinner.
 - [ ] **Fullscreen** editing-suite layout (media bin / stage / inspector / timeline),
       exposing only real controls (see spec §9 capability map).
 - [ ] **PiP** floating-monitor layout (preview + scrubber + status pill).
