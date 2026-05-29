@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "images": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "template": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "message"
+  ],
+  "additionalProperties": false
+}

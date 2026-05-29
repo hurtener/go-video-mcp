@@ -1,0 +1,13 @@
+{
+  "name": "happy",
+  "description": "Open the uploader with a prompt — the card shows the drop-zone and where files land.",
+  "state": "ready",
+  "input": {
+    "note": "Drop the 12 wedding photos here"
+  },
+  "output_override": {
+    "kind": "media_uploader",
+    "note": "Drop the 12 wedding photos here",
+    "roots": ["/Users/you/frameline-media"]
+  }
+}

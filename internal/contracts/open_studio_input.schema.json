@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "images": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "template": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

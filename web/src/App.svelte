@@ -20,6 +20,7 @@
   import Filmstrip from './components/Filmstrip.svelte';
   import AudioStrip from './components/AudioStrip.svelte';
   import CaptionsEditor from './components/CaptionsEditor.svelte';
+  import MediaUploader from './components/MediaUploader.svelte';
   import Preview from './components/Preview.svelte';
   import Recipe from './components/Recipe.svelte';
   import { applyHostVariables } from './theme.js';
@@ -35,6 +36,8 @@
     type AudioBed,
     type CinematicInput,
     type CinematicOutput,
+    type AppResult,
+    type IngestedItem,
     type IngestMediaOutput,
     type ListMediaOutput,
     type ReadMediaOutput,
@@ -61,6 +64,12 @@
   let transitionSeconds = $state(1);
   let advancedOpen = $state(false);
   let captionRows = $state<UICaption[]>([]);
+
+  // --- view dispatch (composer vs the media uploader widget) ---------------
+  let view = $state<'composer' | 'uploader'>('composer');
+  let uploaderNote = $state('');
+  let uploaderRoots = $state<string[]>([]);
+  let uploaderItems = $state<IngestedItem[]>([]);
 
   // --- runtime state -------------------------------------------------------
   let rendering = $state(false);
@@ -129,12 +138,30 @@
     }
   });
 
-  const offResult = bridge.onToolResult<CinematicOutput>((r) => {
-    if (r.structuredContent) {
-      result = r.structuredContent;
-      rendering = false;
-      renderError = null;
+  const offResult = bridge.onToolResult<AppResult>((r) => {
+    const payload = r.structuredContent;
+    if (!payload) return;
+    rendering = false;
+    renderError = null;
+    // Dispatch the App view on the output's discriminator: open_media_uploader
+    // → the uploader; open_studio → an (optionally pre-seeded) composer;
+    // anything else is a cinematic render result for the composer.
+    if ('kind' in payload && payload.kind === 'media_uploader') {
+      view = 'uploader';
+      uploaderNote = payload.note ?? '';
+      uploaderRoots = payload.roots ?? [];
+      return;
     }
+    if ('kind' in payload && payload.kind === 'studio') {
+      view = 'composer';
+      if (payload.template) applyTemplate(payload.template);
+      if (Array.isArray(payload.images) && payload.images.length && clips.length === 0) {
+        clips = payload.images.map((p) => ({ id: nextId(), name: baseName(p), path: p, status: 'ready' as const }));
+      }
+      return;
+    }
+    view = 'composer';
+    result = payload as CinematicOutput;
   });
 
   let currentVars: StyleVariables | undefined;
@@ -188,6 +215,7 @@
     bridge.close();
     // Revoke any object URLs we created for previews.
     for (const c of clips) if (c.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(c.previewUrl);
+    for (const u of uploaderItems) if (u.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(u.previewUrl);
     if (audio?.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(audio.previewUrl);
   });
 
@@ -262,6 +290,56 @@
 
   function addFromBrowse(item: MediaItem) {
     clips = [...clips, { id: nextId(), name: item.name, path: item.path, status: 'ready' }];
+  }
+
+  // --- media uploader widget ----------------------------------------------
+
+  // Ingest dropped files onto the server (ingest_media), tracking each row's
+  // status so the uploader card shows progress and the resolved server path.
+  async function uploadFiles(files: FileList) {
+    for (const file of Array.from(files)) {
+      const item: IngestedItem = {
+        id: nextId(),
+        name: file.name,
+        previewUrl: URL.createObjectURL(file),
+        status: 'uploading',
+      };
+      uploaderItems = [...uploaderItems, item];
+      try {
+        const res = await bridge.callTool<unknown, IngestMediaOutput>('ingest_media', {
+          filename: file.name,
+          data_base64: await fileToBase64(file),
+        });
+        const out = res.structuredContent;
+        if (res.isError || !out) throw new Error('ingest failed');
+        patchUpload(item.id, { path: out.path, kind: out.kind, size: out.size_bytes, status: 'ready' });
+      } catch (err) {
+        patchUpload(item.id, { status: 'error', error: (err as Error)?.message ?? 'failed' });
+      }
+    }
+  }
+
+  function patchUpload(id: string, patch: Partial<IngestedItem>) {
+    uploaderItems = uploaderItems.map((i) => (i.id === id ? { ...i, ...patch } : i));
+  }
+
+  function clearUploads() {
+    for (const i of uploaderItems) if (i.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(i.previewUrl);
+    uploaderItems = [];
+  }
+
+  // Hand the uploaded images off to the composer: seed the filmstrip (images
+  // only — audio is added via the music bed) and switch to the composer view.
+  function useUploadedInStudio() {
+    const imgs = uploaderItems.filter((i) => i.status === 'ready' && i.path && i.kind === 'image');
+    for (const i of imgs) {
+      if (!clips.some((c) => c.path === i.path)) {
+        clips = [...clips, { id: nextId(), name: i.name, path: i.path, previewUrl: i.previewUrl, status: 'ready' }];
+      }
+    }
+    const song = uploaderItems.find((i) => i.status === 'ready' && i.path && i.kind === 'audio');
+    if (song && !audio) audio = { name: song.name, path: song.path!, previewUrl: song.previewUrl };
+    view = 'composer';
   }
 
   // Picking a template pre-fills the look/motion/timing chips with its preset;
@@ -358,12 +436,28 @@
 
 <div class="frameline" bind:this={rootEl} data-display={displayMode} data-testid="frameline">
   <header class="bar">
-    <h1>Frameline Studio</h1>
-    <button class="icon-btn" title="Advanced settings" aria-label="Advanced settings" onclick={() => (advancedOpen = !advancedOpen)}>
-      <Icon name="sliders" size={18} />
-    </button>
+    <h1>{view === 'uploader' ? 'Media Uploader' : 'Frameline Studio'}</h1>
+    {#if view === 'uploader'}
+      <button class="icon-btn" title="Back to studio" aria-label="Back to studio" onclick={() => (view = 'composer')}>
+        <Icon name="film" size={18} />
+      </button>
+    {:else}
+      <button class="icon-btn" title="Advanced settings" aria-label="Advanced settings" onclick={() => (advancedOpen = !advancedOpen)}>
+        <Icon name="sliders" size={18} />
+      </button>
+    {/if}
   </header>
 
+  {#if view === 'uploader'}
+    <MediaUploader
+      note={uploaderNote}
+      roots={uploaderRoots}
+      items={uploaderItems}
+      onPick={uploadFiles}
+      onUseInStudio={useUploadedInStudio}
+      onClear={clearUploads}
+    />
+  {:else}
   <Preview {posterUrl} {result} {rendering} {aspect} {videoUrl} />
 
   {#if connecting}
@@ -445,6 +539,7 @@
 
   {#if result}
     <Recipe filterComplex={result.filter_complex} command={result.render.command} />
+  {/if}
   {/if}
 </div>
 

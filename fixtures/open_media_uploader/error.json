@@ -1,0 +1,13 @@
+{
+  "name": "error",
+  "description": "An upload failed mid-ingest (e.g. the server work directory is not writable) — the card surfaces the failure with a retry.",
+  "state": "error",
+  "input": {
+    "note": "Drop your media here"
+  },
+  "output_override": {
+    "kind": "media_uploader",
+    "note": "Drop your media here",
+    "roots": ["/Users/you/frameline-media"]
+  }
+}

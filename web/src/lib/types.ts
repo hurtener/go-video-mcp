@@ -177,6 +177,34 @@ export interface IngestMediaOutput {
   size_bytes: number;
 }
 
+// Outputs of the App-entry tools. The App dispatches its view on `kind`.
+export interface OpenStudioOutput {
+  kind: 'studio';
+  message: string;
+  images?: string[];
+  template?: string;
+}
+export interface OpenMediaUploaderOutput {
+  kind: 'media_uploader';
+  note?: string;
+  roots: string[];
+}
+// Any payload the Frameline App may receive via onToolResult.
+export type AppResult = CinematicOutput | OpenStudioOutput | OpenMediaUploaderOutput;
+
+// IngestedItem is one row in the Media Uploader: a file being/already ingested
+// onto the server. `path` is set once ingest_media returns.
+export interface IngestedItem {
+  id: string;
+  name: string;
+  path?: string;
+  kind?: string;
+  size?: number;
+  previewUrl?: string;
+  status: 'uploading' | 'ready' | 'error';
+  error?: string;
+}
+
 export interface ReadMediaOutput {
   data_uri?: string;
   mime: string;

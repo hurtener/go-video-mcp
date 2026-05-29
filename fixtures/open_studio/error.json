@@ -1,0 +1,8 @@
+{
+  "name": "error",
+  "description": "A pre-load image path resolved outside the allowed roots — the tool errors before the card opens.",
+  "state": "error",
+  "input": {
+    "images": ["/etc/passwd"]
+  }
+}

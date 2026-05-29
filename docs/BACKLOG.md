@@ -14,6 +14,10 @@ don't get lost. Grouped by area; rough priority noted. Checked items are done.
 - [x] Verified end-to-end render through the inspector host (real ffmpeg)
 - [x] read_media tool + in-iframe reel playback (verified: data: video decodes
       under the sandboxed deny-by-default CSP in the inspector host)
+- [x] App entry-point tools: open_studio (renders the empty composer) and
+      open_media_uploader (a dedicated Media Uploader view — dropzone → ingest →
+      "Use in Frameline Studio" handoff). Both bind to the frameline App and the
+      App dispatches its view on the output `kind`. Verified in the inspector.
 - [x] **V4 captions** — pure-Go rendered overlay PNGs composited via FFmpeg
       `overlay` (drawtext/libfreetype absent in the common build); font allowlist;
       captions editor in the card; verified burned-in (top + lower-third)

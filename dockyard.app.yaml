@@ -54,6 +54,18 @@ tools:
     input: internal/contracts.ReadMediaInput
     output: internal/contracts.ReadMediaOutput
     task_support: forbidden
+  - name: open_studio
+    description: Open the Frameline Studio composer card (arrange stills, render a reel).
+    input: internal/contracts.OpenStudioInput
+    output: internal/contracts.OpenStudioOutput
+    ui: frameline
+    task_support: forbidden
+  - name: open_media_uploader
+    description: Open the Media Uploader card so the user can drag in photos and music.
+    input: internal/contracts.OpenMediaUploaderInput
+    output: internal/contracts.OpenMediaUploaderOutput
+    ui: frameline
+    task_support: forbidden
   - name: create_cinematic_image_video
     description: Compile an image sequence into a cinematic slideshow video.
     input: internal/contracts.CreateCinematicImageVideoInput

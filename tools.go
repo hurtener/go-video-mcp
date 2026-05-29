@@ -61,6 +61,22 @@ func registerTools(srv *server.Server, h *handlers.Handlers) error {
 		return err
 	}
 
+	if err := tool.New[contracts.OpenStudioInput, contracts.OpenStudioOutput]("open_studio").
+		Describe("Open the Frameline Studio composer card — the interactive surface to arrange stills, set the look, and render a cinematic reel. Call with no arguments to open an empty composer the user can drop stills into.").
+		UI(appName).
+		Handler(h.OpenStudio).
+		Register(srv); err != nil {
+		return err
+	}
+
+	if err := tool.New[contracts.OpenMediaUploaderInput, contracts.OpenMediaUploaderOutput]("open_media_uploader").
+		Describe("Open the Media Uploader card so the user can drag in photos and music. Use this when the user wants to upload or add media. The card ingests dropped files onto the server and shows their paths, ready to compose into a reel.").
+		UI(appName).
+		Handler(h.OpenMediaUploader).
+		Register(srv); err != nil {
+		return err
+	}
+
 	if err := tool.New[contracts.CreateCinematicImageVideoInput, contracts.CreateCinematicImageVideoOutput]("create_cinematic_image_video").
 		Describe("Compile a sequence of images into a cinematic slideshow video: canvas preset, per-image Ken Burns motion, crossfade/wipe/slide transitions, a colour grade, and an optional faded music bed — all in one render. Returns the produced file and the compiled FFmpeg filtergraph.").
 		UI(appName).

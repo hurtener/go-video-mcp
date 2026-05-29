@@ -330,6 +330,76 @@ export interface ReadMediaOutput {
   truncated?: boolean;
 }
 /**
+ * OpenStudioInput opens the Frameline Studio composer card — the interactive
+ * surface for arranging stills and rendering a cinematic reel. Every field is
+ * optional: call it with no args to open an empty composer the user can drop
+ * stills into, or pre-fill it.
+ */
+export interface OpenStudioInput {
+  /**
+   * Images optionally pre-loads the composer with these image paths (each must
+   * resolve inside an allowed root). Empty opens an empty composer.
+   */
+  images?: string[];
+  /**
+   * Template optionally pre-selects a cinematic template (see Template).
+   */
+  template?: Template;
+}
+/**
+ * OpenStudioOutput drives the composer view of the Frameline App. Kind is the
+ * App's view discriminator.
+ */
+export interface OpenStudioOutput {
+  /**
+   * Kind selects the App view. Always "studio".
+   */
+  kind: string;
+  /**
+   * Message is a short human-facing note shown with the card.
+   */
+  message: string;
+  /**
+   * Images echoes any pre-load paths the App should seed the filmstrip with.
+   */
+  images?: string[];
+  /**
+   * Template echoes any pre-selected template.
+   */
+  template?: Template;
+}
+/**
+ * OpenMediaUploaderInput opens the Media Uploader card — a dedicated drop-zone
+ * for getting photos and music onto the server (via ingest_media) before
+ * composing a reel. It takes no required fields; the user drops files into the
+ * card and the App ingests them.
+ */
+export interface OpenMediaUploaderInput {
+  /**
+   * Note optionally shows a short prompt at the top of the uploader (e.g.
+   * "Drop the wedding photos here"). Optional.
+   */
+  note?: string;
+}
+/**
+ * OpenMediaUploaderOutput drives the uploader view of the Frameline App.
+ */
+export interface OpenMediaUploaderOutput {
+  /**
+   * Kind selects the App view. Always "media_uploader".
+   */
+  kind: string;
+  /**
+   * Note echoes the optional prompt.
+   */
+  note?: string;
+  /**
+   * Roots are the server's allowed media roots, so the card can show where
+   * uploaded files land.
+   */
+  roots: string[];
+}
+/**
  * TransitionStyle selects how one image gives way to the next.
  * Allowed: "none", "fade", "wipe", "slide", "zoom_blur", "film_dissolve",
  * "random_safe".

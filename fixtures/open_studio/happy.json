@@ -1,0 +1,15 @@
+{
+  "name": "happy",
+  "description": "Open the composer pre-loaded with three stills and the wedding_reel template — the filmstrip seeds from the images, chips reflect the template.",
+  "state": "ready",
+  "input": {
+    "images": ["/media/wedding/ceremony-01.jpg", "/media/wedding/first-dance.jpg", "/media/wedding/sparkler-exit.jpg"],
+    "template": "wedding_reel"
+  },
+  "output_override": {
+    "kind": "studio",
+    "message": "Frameline Studio is open with 3 image(s) loaded.",
+    "images": ["/media/wedding/ceremony-01.jpg", "/media/wedding/first-dance.jpg", "/media/wedding/sparkler-exit.jpg"],
+    "template": "wedding_reel"
+  }
+}

@@ -212,6 +212,54 @@ type ReadMediaOutput struct {
 	Truncated bool `json:"truncated,omitempty"`
 }
 
+// --- open_studio / open_media_uploader (App entry points) ------------------
+
+// OpenStudioInput opens the Frameline Studio composer card — the interactive
+// surface for arranging stills and rendering a cinematic reel. Every field is
+// optional: call it with no args to open an empty composer the user can drop
+// stills into, or pre-fill it.
+type OpenStudioInput struct {
+	// Images optionally pre-loads the composer with these image paths (each must
+	// resolve inside an allowed root). Empty opens an empty composer.
+	Images []string `json:"images,omitempty"`
+	// Template optionally pre-selects a cinematic template (see Template).
+	Template Template `json:"template,omitempty"`
+}
+
+// OpenStudioOutput drives the composer view of the Frameline App. Kind is the
+// App's view discriminator.
+type OpenStudioOutput struct {
+	// Kind selects the App view. Always "studio".
+	Kind string `json:"kind"`
+	// Message is a short human-facing note shown with the card.
+	Message string `json:"message"`
+	// Images echoes any pre-load paths the App should seed the filmstrip with.
+	Images []string `json:"images,omitempty"`
+	// Template echoes any pre-selected template.
+	Template Template `json:"template,omitempty"`
+}
+
+// OpenMediaUploaderInput opens the Media Uploader card — a dedicated drop-zone
+// for getting photos and music onto the server (via ingest_media) before
+// composing a reel. It takes no required fields; the user drops files into the
+// card and the App ingests them.
+type OpenMediaUploaderInput struct {
+	// Note optionally shows a short prompt at the top of the uploader (e.g.
+	// "Drop the wedding photos here"). Optional.
+	Note string `json:"note,omitempty"`
+}
+
+// OpenMediaUploaderOutput drives the uploader view of the Frameline App.
+type OpenMediaUploaderOutput struct {
+	// Kind selects the App view. Always "media_uploader".
+	Kind string `json:"kind"`
+	// Note echoes the optional prompt.
+	Note string `json:"note,omitempty"`
+	// Roots are the server's allowed media roots, so the card can show where
+	// uploaded files land.
+	Roots []string `json:"roots"`
+}
+
 // --- create_cinematic_image_video ------------------------------------------
 
 // TransitionStyle selects how one image gives way to the next.

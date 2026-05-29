@@ -1,0 +1,10 @@
+{
+  "name": "empty",
+  "description": "Open an empty composer (no args) — the card shows its drop-stills empty state.",
+  "state": "empty",
+  "input": {},
+  "output_override": {
+    "kind": "studio",
+    "message": "Frameline Studio is open — drop stills, set the look, and render a reel."
+  }
+}
