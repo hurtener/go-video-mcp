@@ -80,6 +80,14 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 			return fail(fmt.Errorf("background_audio: %w", err))
 		}
 	}
+	// V5 loudness normalize: defaults on; a *bool lets the caller turn it off.
+	normalizeAudio := true
+	if in.NormalizeAudio != nil {
+		normalizeAudio = *in.NormalizeAudio
+	}
+	// V5 beat-sync applies only with a positive BPM (no onset detection).
+	beatSync := in.BeatSync && in.BPM > 0
+	blended := slideshow.TransitionStyle(transition) != slideshow.TransitionNone && len(images) > 1
 
 	// Captions (V4): rasterise each to a full-canvas overlay PNG (pure Go) and
 	// hand the compiler the paths + time windows. captionWarn surfaces any
@@ -102,6 +110,9 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		AudioPath:           audioPath,
 		AudioFadeInSeconds:  in.AudioFadeInSeconds,
 		AudioFadeOutSeconds: in.AudioFadeOutSeconds,
+		NormalizeAudio:      audioPath != "" && normalizeAudio,
+		BeatSync:            beatSync,
+		BPM:                 in.BPM,
 		Captions:            capOverlays,
 		Output:              output,
 	}
@@ -123,10 +134,16 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 	if captionWarn != "" {
 		warnings = append(warnings, captionWarn)
 	}
+
+	// Report the effective per-image time — beat-sync rounds it to whole beats.
+	effectivePerImage := perImage
+	if beatSync {
+		effectivePerImage = slideshow.BeatSnappedDuration(perImage, transSecs, in.BPM, blended)
+	}
 	out := contracts.CreateCinematicImageVideoOutput{
 		Render:          ro,
 		ImageCount:      len(images),
-		PerImageSeconds: perImage,
+		PerImageSeconds: effectivePerImage,
 		FilterComplex:   plan.Graph.String(),
 		Warnings:        warnings,
 	}
@@ -246,8 +263,8 @@ func plannedWarnings(in contracts.CreateCinematicImageVideoInput) []string {
 	if in.Watermark != "" {
 		w = append(w, "watermark is accepted but not yet rendered (planned)")
 	}
-	if in.BeatSync {
-		w = append(w, "beat_sync is accepted but not yet applied (planned)")
+	if in.BeatSync && in.BPM <= 0 {
+		w = append(w, "beat_sync needs a positive bpm to snap to; ignored (no onset detection)")
 	}
 	if in.SafeArea {
 		w = append(w, "safe_area is accepted but not yet enforced (planned)")

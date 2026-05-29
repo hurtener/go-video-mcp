@@ -49,6 +49,12 @@
     "audio_fade_out_seconds": {
       "type": "number"
     },
+    "normalize_audio": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
     "captions": {
       "type": [
         "null",
@@ -83,6 +89,9 @@
     },
     "beat_sync": {
       "type": "boolean"
+    },
+    "bpm": {
+      "type": "number"
     },
     "safe_area": {
       "type": "boolean"

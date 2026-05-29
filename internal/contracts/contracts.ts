@@ -444,6 +444,13 @@ export interface CreateCinematicImageVideoInput {
   audio_fade_in_seconds?: number /* float64 */;
   audio_fade_out_seconds?: number /* float64 */;
   /**
+   * NormalizeAudio loudness-normalises the music bed via a single-pass
+   * loudnorm (EBU R128, ~-16 LUFS) so beds of differing loudness sound even.
+   * Defaults to true when omitted; set false to skip. Single-pass (not the
+   * two-pass measure-then-apply), which is plenty for a background bed.
+   */
+  normalize_audio?: boolean;
+  /**
    * Captions are timed text overlays. Accepted now; burned-in rendering is a
    * later layer — supplied captions are echoed in Warnings until then.
    */
@@ -453,10 +460,17 @@ export interface CreateCinematicImageVideoInput {
    */
   watermark?: string;
   /**
-   * BeatSync, when true, would align transitions to the music beat. Planned;
-   * echoed in Warnings.
+   * BeatSync, when true and BPM > 0, snaps each transition (or hard cut) to
+   * the music beat by rounding the per-image advance to a whole number of
+   * beats. BPM-driven (no onset detection) — supply the track's tempo. When
+   * BeatSync is set without a positive BPM it is reported in Warnings.
    */
   beat_sync?: boolean;
+  /**
+   * BPM is the music tempo (beats per minute) used for BeatSync. Ignored
+   * unless BeatSync is true. There is no auto-detection — pass the known BPM.
+   */
+  bpm?: number /* float64 */;
   /**
    * SafeArea, when true, would keep content inside a title-safe margin.
    * Planned; echoed in Warnings.

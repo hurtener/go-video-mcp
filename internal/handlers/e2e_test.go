@@ -181,6 +181,63 @@ func TestCinematicTemplatesE2E(t *testing.T) {
 	}
 }
 
+// TestCinematicAudioV5E2E renders a reel over a music bed shorter than the reel
+// with loudness-normalize + beat-sync on, and verifies (a) audio is present,
+// (b) the closing apad keeps the reel at its full video length instead of being
+// truncated to the short bed, and (c) loudnorm is in the graph. Gated by
+// FFMPEG_E2E.
+func TestCinematicAudioV5E2E(t *testing.T) {
+	if os.Getenv("FFMPEG_E2E") == "" {
+		t.Skip("set FFMPEG_E2E=1 to run the real-FFmpeg V5 audio test")
+	}
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skipf("ffmpeg not on PATH: %v", err)
+	}
+
+	root := t.TempDir()
+	imgs := makeImages(t, root, 3, 800, 800)
+	audio := makeAudio(t, root, 2) // deliberately shorter than the ~6s reel
+	out := filepath.Join(root, "reel.mp4")
+
+	k, err := kernel.New(kernel.Config{AllowedRoots: []string{root}, Timeout: 2 * time.Minute})
+	if err != nil {
+		t.Fatalf("kernel.New: %v", err)
+	}
+	h := handlers.New(k, root)
+
+	res, err := h.CreateCinematicImageVideo(context.Background(), contracts.CreateCinematicImageVideoInput{
+		Images:              imgs,
+		OutputPath:          out,
+		Canvas:              "1280x720",
+		TotalDuration:       6,
+		TransitionStyle:     "fade",
+		BackgroundAudio:     audio,
+		AudioFadeInSeconds:  1,
+		AudioFadeOutSeconds: 1,
+		BeatSync:            true,
+		BPM:                 120,
+		// NormalizeAudio defaults on (nil pointer).
+	})
+	if err != nil {
+		t.Fatalf("CreateCinematicImageVideo: %v", err)
+	}
+	got := res.Structured
+	if !strings.Contains(got.FilterComplex, "loudnorm") {
+		t.Errorf("expected loudnorm in graph:\n%s", got.FilterComplex)
+	}
+	mi, err := k.Probe(context.Background(), got.Render.OutputPath)
+	if err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	if !mi.HasVideo || !mi.HasAudio {
+		t.Errorf("expected video+audio, got %+v", mi)
+	}
+	// apad must keep the reel at ~6s despite the 2s bed.
+	if mi.DurationSec < 5 || mi.DurationSec > 7 {
+		t.Errorf("duration = %.2fs, want ~6s (apad should prevent truncation to 2s)", mi.DurationSec)
+	}
+}
+
 func makeImages(t *testing.T, dir string, n, w, h int) []string {
 	t.Helper()
 	colors := []string{"red", "green", "blue", "orange"}
@@ -196,4 +253,16 @@ func makeImages(t *testing.T, dir string, n, w, h int) []string {
 		out = append(out, p)
 	}
 	return out
+}
+
+// makeAudio generates a sine-wave WAV of the given length (a stand-in music bed).
+func makeAudio(t *testing.T, dir string, seconds int) string {
+	t.Helper()
+	p := filepath.Join(dir, "bed.wav")
+	args := []string{"-y", "-f", "lavfi", "-i",
+		fmt.Sprintf("sine=frequency=440:duration=%d", seconds), p}
+	if b, err := exec.Command("ffmpeg", args...).CombinedOutput(); err != nil {
+		t.Fatalf("gen audio: %v\n%s", err, b)
+	}
+	return p
 }

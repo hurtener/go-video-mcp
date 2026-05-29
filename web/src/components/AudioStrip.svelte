@@ -11,10 +11,22 @@
     audio: AudioBed | null;
     fadeIn: number;
     fadeOut: number;
+    normalize: boolean;
+    beatSync: boolean;
+    bpm: number;
     onPick: (file: File) => void;
     onClear: () => void;
   }
-  let { audio, fadeIn = $bindable(), fadeOut = $bindable(), onPick, onClear }: Props = $props();
+  let {
+    audio,
+    fadeIn = $bindable(),
+    fadeOut = $bindable(),
+    normalize = $bindable(),
+    beatSync = $bindable(),
+    bpm = $bindable(),
+    onPick,
+    onClear,
+  }: Props = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
   let waveEl: HTMLDivElement | undefined = $state();
@@ -61,28 +73,52 @@
   }
 </script>
 
-<div class="audio">
+<div class="audio-wrap">
+  <div class="audio">
+    {#if audio}
+      <span class="ico"><Icon name="music" size={16} /></span>
+      <span class="name" title={audio.name}>{audio.name}</span>
+      <div class="wave" bind:this={waveEl}>
+        {#if !audio.previewUrl}<div class="static-bar"></div>{/if}
+      </div>
+      <label class="fade" title="Fade in (s)">
+        in <input type="number" min="0" step="0.5" bind:value={fadeIn} />
+      </label>
+      <label class="fade" title="Fade out (s)">
+        out <input type="number" min="0" step="0.5" bind:value={fadeOut} />
+      </label>
+      <button class="ghost" aria-label="Remove track" title="Remove track" onclick={onClear}><Icon name="x" size={14} /></button>
+    {:else}
+      <span class="ico"><Icon name="music" size={16} /></span>
+      <button class="add" onclick={pick}><Icon name="plus" size={14} /> Add a music bed</button>
+    {/if}
+    <input bind:this={fileInput} type="file" accept="audio/*" onchange={onFile} hidden />
+  </div>
+
   {#if audio}
-    <span class="ico"><Icon name="music" size={16} /></span>
-    <span class="name" title={audio.name}>{audio.name}</span>
-    <div class="wave" bind:this={waveEl}>
-      {#if !audio.previewUrl}<div class="static-bar"></div>{/if}
+    <!-- V5 audio polish: loudness normalise + beat-sync. -->
+    <div class="audio-opts">
+      <label class="toggle" title="Loudness-normalise the bed (single-pass loudnorm, ~-16 LUFS)">
+        <input type="checkbox" bind:checked={normalize} /> Normalize
+      </label>
+      <label class="toggle" title="Snap each transition to the beat (needs BPM)">
+        <input type="checkbox" bind:checked={beatSync} /> Cut to beat
+      </label>
+      {#if beatSync}
+        <label class="bpm" title="Track tempo in beats per minute">
+          BPM <input type="number" min="0" step="1" bind:value={bpm} placeholder="120" />
+        </label>
+      {/if}
     </div>
-    <label class="fade" title="Fade in (s)">
-      in <input type="number" min="0" step="0.5" bind:value={fadeIn} />
-    </label>
-    <label class="fade" title="Fade out (s)">
-      out <input type="number" min="0" step="0.5" bind:value={fadeOut} />
-    </label>
-    <button class="ghost" aria-label="Remove track" title="Remove track" onclick={onClear}><Icon name="x" size={14} /></button>
-  {:else}
-    <span class="ico"><Icon name="music" size={16} /></span>
-    <button class="add" onclick={pick}><Icon name="plus" size={14} /> Add a music bed</button>
   {/if}
-  <input bind:this={fileInput} type="file" accept="audio/*" onchange={onFile} hidden />
 </div>
 
 <style>
+  .audio-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
   .audio {
     display: flex;
     align-items: center;
@@ -92,6 +128,43 @@
     background: var(--fl-panel-2);
     border: 1px solid var(--fl-hairline);
     min-height: 44px;
+  }
+  .audio-opts {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 7px 12px 0;
+    flex-wrap: wrap;
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--fl-muted);
+    cursor: pointer;
+  }
+  .toggle input {
+    accent-color: var(--fl-accent);
+    cursor: pointer;
+  }
+  .bpm {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fl-muted);
+  }
+  .bpm input {
+    width: 52px;
+    padding: 3px 5px;
+    border-radius: 6px;
+    border: 1px solid var(--fl-hairline);
+    background: var(--fl-canvas);
+    color: var(--fl-text);
+    font-size: 11px;
   }
   .ico {
     color: var(--fl-muted);

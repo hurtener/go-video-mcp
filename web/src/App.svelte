@@ -47,6 +47,9 @@
   let audio = $state<AudioBed | null>(null);
   let fadeIn = $state(1);
   let fadeOut = $state(2);
+  let normalizeAudio = $state(true);
+  let beatSync = $state(false);
+  let bpm = $state(120);
   let template = $state('none');
   let canvas = $state('1920x1080');
   let fps = $state(30);
@@ -101,6 +104,9 @@
     if (input.color_grade) grade = input.color_grade;
     if (input.transition_seconds) transitionSeconds = input.transition_seconds;
     if (input.duration_per_image) secondsPerImage = input.duration_per_image;
+    if (typeof input.normalize_audio === 'boolean') normalizeAudio = input.normalize_audio;
+    if (typeof input.beat_sync === 'boolean') beatSync = input.beat_sync;
+    if (input.bpm) bpm = input.bpm;
     if (Array.isArray(input.captions) && captionRows.length === 0) {
       captionRows = input.captions.map((c) => ({
         id: nextId(),
@@ -293,6 +299,11 @@
       args.background_audio = audio.path;
       args.audio_fade_in_seconds = fadeIn;
       args.audio_fade_out_seconds = fadeOut;
+      args.normalize_audio = normalizeAudio;
+      if (beatSync && bpm > 0) {
+        args.beat_sync = true;
+        args.bpm = bpm;
+      }
     }
     const caps = captionRows
       .filter((c) => c.text.trim() && c.end > c.start)
@@ -392,7 +403,16 @@
     <Chip icon="film" label="Transition" bind:value={transition} options={TRANSITION_OPTIONS} />
   </div>
 
-  <AudioStrip {audio} bind:fadeIn bind:fadeOut onPick={addAudio} onClear={clearAudio} />
+  <AudioStrip
+    {audio}
+    bind:fadeIn
+    bind:fadeOut
+    bind:normalize={normalizeAudio}
+    bind:beatSync
+    bind:bpm
+    onPick={addAudio}
+    onClear={clearAudio}
+  />
 
   <CaptionsEditor bind:captions={captionRows} />
 

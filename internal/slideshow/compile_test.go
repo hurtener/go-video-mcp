@@ -119,9 +119,13 @@ func TestCompile_AudioBed(t *testing.T) {
 	if !strings.Contains(g, "[2:a]aresample=async=1,afade=t=in:st=0:d=1") {
 		t.Errorf("expected audio fade-in chain in:\n%s", g)
 	}
-	// total = 2*3 - 1*1 = 5; fade-out starts at 5-2 = 3.
-	if !strings.Contains(g, "afade=t=out:st=3:d=2[aout]") {
-		t.Errorf("expected audio fade-out at st=3 in:\n%s", g)
+	// total = 2*3 - 1*1 = 5; fade-out starts at 5-2 = 3; apad closes the chain.
+	if !strings.Contains(g, "afade=t=out:st=3:d=2,apad[aout]") {
+		t.Errorf("expected audio fade-out at st=3 + apad in:\n%s", g)
+	}
+	// NormalizeAudio defaulted off here → no loudnorm.
+	if strings.Contains(g, "loudnorm") {
+		t.Errorf("did not expect loudnorm when NormalizeAudio is false:\n%s", g)
 	}
 	if !contains(plan.Maps, "[aout]") {
 		t.Errorf("expected [aout] map, got %v", plan.Maps)
@@ -167,6 +171,98 @@ func TestCompile_CaptionOverlays(t *testing.T) {
 	}
 	if !strings.Contains(g, "[cov0]setsar=1,format=yuv420p[vout]") {
 		t.Errorf("captions should compose before the final [vout] in:\n%s", g)
+	}
+}
+
+// NormalizeAudio inserts a single-pass loudnorm right after the resample, ahead
+// of the fades and the closing apad.
+func TestCompile_AudioLoudnorm(t *testing.T) {
+	spec := Spec{
+		Images:          []string{"a.jpg", "b.jpg"},
+		Width:           1280,
+		Height:          720,
+		FPS:             30,
+		SecondsPerImage: 3,
+		Transition:      TransitionNone,
+		Motion:          MotionNone,
+		AudioPath:       "song.mp3",
+		NormalizeAudio:  true,
+		Output:          "o.mp4",
+	}
+	plan, err := Compile(spec)
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	g := plan.Graph.String()
+	if !strings.Contains(g, "aresample=async=1,loudnorm=I=-16:TP=-1.5:LRA=11") {
+		t.Errorf("expected loudnorm after resample in:\n%s", g)
+	}
+	if !strings.Contains(g, "apad[aout]") {
+		t.Errorf("expected closing apad in:\n%s", g)
+	}
+}
+
+// BeatSnappedDuration rounds the per-image advance to whole beats.
+func TestBeatSnappedDuration(t *testing.T) {
+	const eps = 1e-9
+	cases := []struct {
+		name            string
+		dur, trans, bpm float64
+		blended         bool
+		want            float64
+	}{
+		// 120 BPM → 0.5s/beat. advance 2.7 → 5 beats (2.5) → +trans = 3.5.
+		{"blended-round-down", 3.7, 1, 120, true, 3.5},
+		// concat advance 3.7 → round(7.4)=7 beats → 3.5.
+		{"concat", 3.7, 1, 120, false, 3.5},
+		// bpm 0 is a no-op.
+		{"no-bpm", 4, 1, 0, true, 4},
+		// at least one beat even for a tiny advance.
+		{"min-one-beat", 0.2, 0, 120, false, 0.5},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := BeatSnappedDuration(tc.dur, tc.trans, tc.bpm, tc.blended)
+			if got < tc.want-eps || got > tc.want+eps {
+				t.Errorf("BeatSnappedDuration(%v,%v,%v,%v) = %v, want %v",
+					tc.dur, tc.trans, tc.bpm, tc.blended, got, tc.want)
+			}
+		})
+	}
+}
+
+// With beat-sync the xfade offsets land on beat multiples: per-image advance is
+// snapped, so offset_k = k*snappedAdvance is a whole number of beats.
+func TestCompile_BeatSyncOffsets(t *testing.T) {
+	spec := Spec{
+		Images:            []string{"a.jpg", "b.jpg", "c.jpg"},
+		Width:             1280,
+		Height:            720,
+		FPS:               30,
+		SecondsPerImage:   3.7, // advance 2.7 → snaps to 2.5 (5 beats @120)
+		Transition:        TransitionFade,
+		TransitionSeconds: 1,
+		Motion:            MotionNone,
+		BeatSync:          true,
+		BPM:               120,
+		Output:            "b.mp4",
+	}
+	plan, err := Compile(spec)
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	g := plan.Graph.String()
+	// snappedAdvance = 2.5 → offsets 2.5 and 5.
+	if !strings.Contains(g, "duration=1:offset=2.5") {
+		t.Errorf("expected first beat-snapped offset 2.5 in:\n%s", g)
+	}
+	if !strings.Contains(g, "duration=1:offset=5") {
+		t.Errorf("expected second beat-snapped offset 5 in:\n%s", g)
+	}
+	// Each looped image input is held for the snapped per-image duration (3.5).
+	args := strings.Join(plan.ToArgs(), " ")
+	if !strings.Contains(args, "-loop 1 -t 3.5 -i a.jpg") {
+		t.Errorf("expected snapped per-image input duration 3.5 in:\n%s", args)
 	}
 }
 

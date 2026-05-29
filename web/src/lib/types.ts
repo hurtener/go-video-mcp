@@ -153,6 +153,9 @@ export interface CinematicInput {
   background_audio?: string;
   audio_fade_in_seconds?: number;
   audio_fade_out_seconds?: number;
+  normalize_audio?: boolean;
+  beat_sync?: boolean;
+  bpm?: number;
   captions?: Array<{ text: string; start_seconds: number; end_seconds: number; position: string }>;
 }
 

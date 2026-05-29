@@ -12,6 +12,7 @@ package slideshow
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/hurtener/go-video-mcp/internal/kernel"
 )
@@ -41,6 +42,14 @@ type Spec struct {
 	// AudioFadeInSeconds / AudioFadeOutSeconds add fades to the audio bed.
 	AudioFadeInSeconds  float64
 	AudioFadeOutSeconds float64
+	// NormalizeAudio loudness-normalises the bed via a single-pass loudnorm
+	// (EBU R128, ~-16 LUFS). Single-pass, not two-pass — good for a music bed.
+	NormalizeAudio bool
+	// BeatSync, with BPM > 0, snaps the per-image advance to a whole number of
+	// beats so every transition (or hard cut) lands on the beat.
+	BeatSync bool
+	// BPM is the music tempo used for beat snapping (ignored unless BeatSync).
+	BPM float64
 	// Captions are pre-rendered, full-canvas overlay PNGs with time windows.
 	// Each is overlaid at 0:0 gated by `between(t, start, end)`. The handler
 	// rasterises the text (pure Go) and writes the PNGs; the compiler only
@@ -90,6 +99,14 @@ func Compile(s Spec) (kernel.Plan, error) {
 		}
 	}
 
+	// V5 beat-sync: round the per-image advance to a whole number of beats so
+	// each transition lands on the beat. Pure timing tweak; honest BPM-driven
+	// snapping (no onset detection). It only grows dur, so the trans<dur
+	// invariant above still holds.
+	if s.BeatSync && s.BPM > 0 {
+		dur = BeatSnappedDuration(dur, trans, s.BPM, blended)
+	}
+
 	plan := kernel.Plan{Overwrite: true, Output: s.Output}
 	graph := &kernel.FilterGraph{}
 
@@ -122,7 +139,7 @@ func Compile(s Spec) (kernel.Plan, error) {
 	if hasAudio {
 		audioIdx := len(plan.Inputs)
 		plan.Inputs = append(plan.Inputs, kernel.Input{Path: s.AudioPath})
-		graph.Add(audioChain(audioIdx, total, s.AudioFadeInSeconds, s.AudioFadeOutSeconds))
+		graph.Add(audioChain(audioIdx, total, s.AudioFadeInSeconds, s.AudioFadeOutSeconds, s.NormalizeAudio))
 	}
 
 	// Caption overlays: each pre-rendered PNG is a looped full-canvas input,
@@ -207,9 +224,16 @@ func mergeSegments(graph *kernel.FilterGraph, n int, style TransitionStyle, dur,
 	return cur
 }
 
-// audioChain builds the background-audio chain: [idx:a] → fades → [aout].
-func audioChain(idx int, total, fadeIn, fadeOut float64) kernel.FilterChain {
+// audioChain builds the background-audio chain: [idx:a] → (loudnorm) → fades →
+// apad → [aout]. loudnorm (when normalize) is single-pass EBU R128. The closing
+// apad pads the bed with trailing silence so a music track shorter than the
+// reel never truncates it — paired with the output's -shortest, the muxed
+// length matches the (finite) video exactly.
+func audioChain(idx int, total, fadeIn, fadeOut float64, normalize bool) kernel.FilterChain {
 	filters := []string{"aresample=async=1"}
+	if normalize {
+		filters = append(filters, "loudnorm=I=-16:TP=-1.5:LRA=11")
+	}
 	if fadeIn > 0 {
 		filters = append(filters, fmt.Sprintf("afade=t=in:st=0:d=%s", f(fadeIn)))
 	}
@@ -220,11 +244,38 @@ func audioChain(idx int, total, fadeIn, fadeOut float64) kernel.FilterChain {
 		}
 		filters = append(filters, fmt.Sprintf("afade=t=out:st=%s:d=%s", f(st), f(fadeOut)))
 	}
+	filters = append(filters, "apad")
 	return kernel.FilterChain{
 		Inputs:  []string{fmt.Sprintf("%d:a", idx)},
 		Filters: filters,
 		Outputs: []string{"aout"},
 	}
+}
+
+// BeatSnappedDuration rounds the per-image advance to a whole number of beats
+// at the given BPM, returning the adjusted per-image on-screen duration so that
+// every transition (or hard cut) lands on the beat. The advance is dur-trans
+// for a blended transition (the spacing between xfade offsets) or dur for a
+// hard concat cut. It is pure so both the compiler and the handler (which
+// reports the effective per-image time) can agree on the snapped value.
+func BeatSnappedDuration(dur, trans, bpm float64, blended bool) float64 {
+	if bpm <= 0 {
+		return dur
+	}
+	beat := 60.0 / bpm
+	advance := dur
+	if blended {
+		advance = dur - trans
+	}
+	beats := math.Round(advance / beat)
+	if beats < 1 {
+		beats = 1
+	}
+	snapped := beats * beat
+	if blended {
+		return snapped + trans
+	}
+	return snapped
 }
 
 // totalDuration is the rendered length of the reel.
