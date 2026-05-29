@@ -116,7 +116,7 @@ The cinematic tool grows in layers:
 - ✅ V4 — captions / lower-thirds (pure-Go rendered overlays + font allowlist)
 - ⏳ V3 — richer per-image motion presets (diagonal drift, parallax)
 - ⏳ V5 — audio ducking + loudness normalisation
-- ⏳ V6 — cinematic templates ("wedding reel", "product launch", "memory montage")
+- ✅ V6 — cinematic templates (`wedding_reel`, `product_launch`, `memory_montage`, `travel_diary`)
 - ⏳ V7 — storyboard JSON + preview thumbnails before the full render
 - ⏳ Additional tools — `create_slideshow`, `create_video_from_images`, `apply_video_effect`
 

@@ -60,8 +60,11 @@ UI → polish (no-host state, thumbnails) → more tools → infra/CI.
       (top + lower-third) in a real render.
 - [ ] **V5** — audio: ducking, loudness normalize (`loudnorm`), `amix` when stills
       carry audio, beat-detection for `beat_sync` (contract field exists).
-- [ ] **V6** — cinematic templates ("wedding reel", "product launch", "memory
-      montage") — named presets that set canvas/motion/transition/grade/timing.
+- [x] **V6** — cinematic templates (`wedding_reel`, `product_launch`,
+      `memory_montage`, `travel_diary`) — named presets that set canvas/motion/
+      transition/grade/timing. Pure registry in `internal/templates`; precedence
+      is explicit field > template > default. UI: a prominent template picker
+      that pre-fills the chips. Verified per-template against real ffmpeg.
 - [ ] **V7** — storyboard JSON + preview thumbnails (and a low-bitrate preview
       render) before committing to the full render — cheap iteration.
 - [ ] `watermark` overlay (contract field exists; echoed as warning today).
@@ -83,7 +86,7 @@ UI → polish (no-host state, thumbnails) → more tools → infra/CI.
 - [ ] CI: GitHub Actions running `dockyard validate` + `dockyard test` + `go test -race`.
 - [ ] Cross-compile release matrix (`dockyard build --cross-compile`) + checksums on a tag.
 - [ ] Fuzz the filter_complex compiler; broaden kernel coverage (progress parser, RunPlan).
-- [ ] Inspector fixtures for create_cinematic_image_video (happy/empty/error) for the
-      Fixtures switcher.
+- [x] Inspector fixtures for create_cinematic_image_video (happy/empty/error/
+      loading) for the Fixtures switcher.
 - [ ] Publish `@dockyard/bridge`/`@dockyard/ui` to npm upstream → drop the relative
       `file:` web deps (tracked in Dockyard, not here).
