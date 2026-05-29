@@ -2,7 +2,7 @@ module github.com/hurtener/go-video-mcp
 
 go 1.26.2
 
-require github.com/hurtener/dockyard v1.1.0
+require github.com/hurtener/dockyard v1.2.0
 
 require (
 	github.com/fatih/structtag v1.2.0 // indirect
