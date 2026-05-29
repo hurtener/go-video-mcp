@@ -337,8 +337,10 @@ export interface ReadMediaOutput {
 export type TransitionStyle = string;
 /**
  * MotionStyle selects the per-image camera motion (the "Ken Burns" family).
- * Allowed: "none", "ken_burns", "slow_push", "pan_left", "pan_right",
- * "parallax_like".
+ * Allowed: "none", "ken_burns" (gentle centred push), "slow_push" (stronger
+ * centred push), "pan_left" / "pan_right" (lateral drift, no zoom),
+ * "diagonal_drift" (zoom while drifting across both axes), "parallax_like"
+ * (a pronounced zoom with a horizontal slide — a parallax feel).
  */
 export type MotionStyle = string;
 /**
@@ -376,6 +378,31 @@ export interface Caption {
    * Position is a named placement ("lower_third", "center", "top").
    */
   position?: string;
+}
+/**
+ * PerClip carries optional per-image overrides for the flagship tool, indexed
+ * to Images (clip i overrides image i). It is sparse: set only the fields you
+ * want to customise; an empty/zero field inherits the corresponding global
+ * setting. The Clips slice may be shorter than Images — unlisted images use the
+ * globals throughout.
+ */
+export interface PerClip {
+  /**
+   * Motion overrides MotionStyle for this image. Empty inherits the global.
+   */
+  motion?: MotionStyle;
+  /**
+   * Transition overrides the transition style INTO the next image (the join
+   * after this clip). Empty inherits the global. Ignored on the last image and
+   * when the global transition is "none" (a hard-cut reel — per-join hard cuts
+   * inside a blended reel are not yet supported).
+   */
+  transition?: TransitionStyle;
+  /**
+   * DurationSeconds overrides this image's on-screen seconds. Zero inherits the
+   * resolved global per-image duration.
+   */
+  duration_seconds?: number /* float64 */;
 }
 /**
  * CreateCinematicImageVideoInput is the input for the flagship tool: it compiles
@@ -427,9 +454,16 @@ export interface CreateCinematicImageVideoInput {
    */
   transition_seconds?: number /* float64 */;
   /**
-   * MotionStyle selects per-image camera motion. Defaults to "ken_burns".
+   * MotionStyle selects the default per-image camera motion. Defaults to
+   * "ken_burns". Override individual images with Clips.
    */
   motion_style?: MotionStyle;
+  /**
+   * Clips optionally overrides motion / transition / duration per image,
+   * indexed to Images (sparse; may be shorter than Images). The global fields
+   * remain the defaults for any image or field left unset.
+   */
+  clips?: PerClip[];
   /**
    * ColorGrade selects the final look. Defaults to "neutral".
    */

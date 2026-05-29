@@ -33,8 +33,19 @@ type Spec struct {
 	Transition TransitionStyle
 	// TransitionSeconds is the crossfade duration (ignored for TransitionNone).
 	TransitionSeconds float64
-	// Motion selects per-image camera motion.
+	// Motion selects the default per-image camera motion.
 	Motion MotionStyle
+	// ClipMotions, when non-empty, overrides Motion per image by index. An empty
+	// entry (or a slice shorter than Images) falls back to Motion. (V3)
+	ClipMotions []MotionStyle
+	// ClipDurations, when non-empty, overrides SecondsPerImage per image by
+	// index. A zero entry (or a short slice) falls back to SecondsPerImage. (V3)
+	ClipDurations []float64
+	// ClipTransitions, when non-empty, overrides the transition style per JOIN
+	// by index (join k is between image k and k+1). An empty/"none" entry (or a
+	// short slice) falls back to Transition. Applies only when the reel is
+	// blended (Transition != none); per-join hard cuts are not yet supported. (V3)
+	ClipTransitions []TransitionStyle
 	// Grade selects the final colour look.
 	Grade ColorGrade
 	// AudioPath, when non-empty, is an already-validated background audio file.
@@ -87,47 +98,62 @@ func Compile(s Spec) (kernel.Plan, error) {
 		return kernel.Plan{}, fmt.Errorf("slideshow: invalid seconds-per-image %v", s.SecondsPerImage)
 	}
 
-	dur := s.SecondsPerImage
 	trans := s.TransitionSeconds
 	blended := s.Transition != TransitionNone && n > 1
-	if blended {
-		if trans <= 0 {
-			trans = 1.0
-		}
-		if trans >= dur {
-			return kernel.Plan{}, fmt.Errorf("slideshow: transition (%.2fs) must be shorter than per-image duration (%.2fs)", trans, dur)
-		}
+	if blended && trans <= 0 {
+		trans = 1.0
 	}
 
-	// V5 beat-sync: round the per-image advance to a whole number of beats so
-	// each transition lands on the beat. Pure timing tweak; honest BPM-driven
-	// snapping (no onset detection). It only grows dur, so the trans<dur
-	// invariant above still holds.
-	if s.BeatSync && s.BPM > 0 {
-		dur = BeatSnappedDuration(dur, trans, s.BPM, blended)
+	// V3 per-clip resolution: each image's on-screen duration and motion is its
+	// override (when set) else the global; V5 beat-sync then snaps each clip's
+	// advance to whole beats (a no-op when off). Variable durations are why the
+	// merge below uses cumulative offsets rather than a single uniform stride.
+	durs := make([]float64, n)
+	motions := make([]MotionStyle, n)
+	for i := 0; i < n; i++ {
+		d := s.SecondsPerImage
+		if i < len(s.ClipDurations) && s.ClipDurations[i] > 0 {
+			d = s.ClipDurations[i]
+		}
+		if s.BeatSync && s.BPM > 0 {
+			d = BeatSnappedDuration(d, trans, s.BPM, blended)
+		}
+		durs[i] = d
+		m := s.Motion
+		if i < len(s.ClipMotions) && s.ClipMotions[i] != "" {
+			m = s.ClipMotions[i]
+		}
+		motions[i] = m
+	}
+	if blended {
+		for i, d := range durs {
+			if trans >= d {
+				return kernel.Plan{}, fmt.Errorf("slideshow: transition (%.2fs) must be shorter than image %d's duration (%.2fs)", trans, i, d)
+			}
+		}
 	}
 
 	plan := kernel.Plan{Overwrite: true, Output: s.Output}
 	graph := &kernel.FilterGraph{}
 
-	// One looped-image input per photo, each held for `dur` seconds.
-	for _, img := range s.Images {
-		plan.Inputs = append(plan.Inputs, kernel.Input{Path: img, Loop: true, Duration: dur})
+	// One looped-image input per photo, each held for its resolved duration.
+	for i, img := range s.Images {
+		plan.Inputs = append(plan.Inputs, kernel.Input{Path: img, Loop: true, Duration: durs[i]})
 	}
 
 	// Per-image motion/preprocessing chains: [i:v] … [v{i}].
 	for i := range s.Images {
 		graph.Add(kernel.FilterChain{
 			Inputs:  []string{fmt.Sprintf("%d:v", i)},
-			Filters: segmentFilters(s.Motion, s.Width, s.Height, s.FPS, dur),
+			Filters: segmentFilters(motions[i], s.Width, s.Height, s.FPS, durs[i]),
 			Outputs: []string{fmt.Sprintf("v%d", i)},
 		})
 	}
 
-	total := totalDuration(n, dur, trans, blended)
+	total := totalDuration(durs, trans, blended)
 
 	// Merge the segments into a single video stream, then colour grade.
-	last := mergeSegments(graph, n, s.Transition, dur, trans, blended)
+	last := mergeSegments(graph, durs, s.Transition, s.ClipTransitions, trans, blended)
 	if gf := gradeFilters(s.Grade); len(gf) > 0 {
 		graph.Add(kernel.FilterChain{Inputs: []string{last}, Filters: gf, Outputs: []string{"vgraded"}})
 		last = "vgraded"
@@ -188,8 +214,14 @@ func Compile(s Spec) (kernel.Plan, error) {
 }
 
 // mergeSegments joins v0..v{n-1} into one stream and returns its pad label.
-// With a blended transition it chains xfade joins; otherwise it concats.
-func mergeSegments(graph *kernel.FilterGraph, n int, style TransitionStyle, dur, trans float64, blended bool) string {
+// With a blended transition it chains xfade joins; otherwise it concats. durs
+// holds each segment's resolved duration (they may differ, V3), so xfade
+// offsets accumulate: join k starts trans before the end of the stream built so
+// far, i.e. at (sum of durations 0..k-1) - k*trans. With uniform durations this
+// reduces to k*(dur-trans). perJoin optionally overrides the transition style
+// per join (empty/none → the global style).
+func mergeSegments(graph *kernel.FilterGraph, durs []float64, style TransitionStyle, perJoin []TransitionStyle, trans float64, blended bool) string {
+	n := len(durs)
 	if n == 1 {
 		return "v0"
 	}
@@ -207,18 +239,24 @@ func mergeSegments(graph *kernel.FilterGraph, n int, style TransitionStyle, dur,
 	}
 
 	cur := "v0"
+	accum := durs[0] // length of the stream merged so far
 	for i := 1; i < n; i++ {
 		out := fmt.Sprintf("x%d", i)
 		if i == n-1 {
 			out = "vmerged"
 		}
-		offset := float64(i) * (dur - trans)
-		name := xfadeName(style, i-1)
+		offset := accum - trans
+		joinStyle := style
+		if k := i - 1; k < len(perJoin) && perJoin[k] != "" && perJoin[k] != TransitionNone {
+			joinStyle = perJoin[k]
+		}
+		name := xfadeName(joinStyle, i-1)
 		graph.Add(kernel.FilterChain{
 			Inputs:  []string{cur, fmt.Sprintf("v%d", i)},
 			Filters: []string{fmt.Sprintf("xfade=transition=%s:duration=%s:offset=%s", name, f(trans), f(offset))},
 			Outputs: []string{out},
 		})
+		accum += durs[i] - trans
 		cur = out
 	}
 	return cur
@@ -278,10 +316,16 @@ func BeatSnappedDuration(dur, trans, bpm float64, blended bool) float64 {
 	return snapped
 }
 
-// totalDuration is the rendered length of the reel.
-func totalDuration(n int, dur, trans float64, blended bool) float64 {
-	if !blended || n < 2 {
-		return float64(n) * dur
+// totalDuration is the rendered length of the reel: the sum of the per-image
+// durations, less the overlap reclaimed by each blended transition.
+func totalDuration(durs []float64, trans float64, blended bool) float64 {
+	sum := 0.0
+	for _, d := range durs {
+		sum += d
 	}
-	return float64(n)*dur - float64(n-1)*trans
+	n := len(durs)
+	if !blended || n < 2 {
+		return sum
+	}
+	return sum - float64(n-1)*trans
 }

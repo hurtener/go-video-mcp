@@ -266,6 +266,134 @@ func TestCompile_BeatSyncOffsets(t *testing.T) {
 	}
 }
 
+// V3: the new motion presets emit distinct zoompan crop-window paths.
+func TestCompile_MotionPresets(t *testing.T) {
+	cases := []struct {
+		motion MotionStyle
+		// substrings the zoompan x/y expression must contain to be distinct.
+		wantX, wantY string
+	}{
+		// diagonal_drift moves on both axes.
+		{MotionDiagonal, "(iw-iw/zoom)*(0.15+0.7*", "(ih-ih/zoom)*(0.15+0.7*"},
+		// parallax_like slides horizontally, stays vertically centred, zooms to 1.18.
+		{MotionParallax, "(iw-iw/zoom)*(0.8-0.6*", "ih/2-(ih/zoom/2)"},
+	}
+	for _, tc := range cases {
+		t.Run(string(tc.motion), func(t *testing.T) {
+			plan, err := Compile(Spec{
+				Images: []string{"a.jpg"}, Width: 1920, Height: 1080, FPS: 30,
+				SecondsPerImage: 4, Transition: TransitionNone, Motion: tc.motion, Output: "m.mp4",
+			})
+			if err != nil {
+				t.Fatalf("Compile: %v", err)
+			}
+			g := plan.Graph.String()
+			if !strings.Contains(g, tc.wantX) {
+				t.Errorf("motion %s missing x path %q in:\n%s", tc.motion, tc.wantX, g)
+			}
+			if !strings.Contains(g, tc.wantY) {
+				t.Errorf("motion %s missing y path %q in:\n%s", tc.motion, tc.wantY, g)
+			}
+		})
+	}
+	// parallax_like must use its distinct stronger zoom (1.18), unlike ken_burns (1.12).
+	plan, _ := Compile(Spec{
+		Images: []string{"a.jpg"}, Width: 1920, Height: 1080, FPS: 30,
+		SecondsPerImage: 4, Transition: TransitionNone, Motion: MotionParallax, Output: "m.mp4",
+	})
+	if !strings.Contains(plan.Graph.String(), ",1.18)") {
+		t.Errorf("parallax_like should zoom to 1.18, graph:\n%s", plan.Graph.String())
+	}
+}
+
+// V3: per-clip motion overrides apply to the right segment; unset clips inherit.
+func TestCompile_PerClipMotion(t *testing.T) {
+	plan, err := Compile(Spec{
+		Images:          []string{"a.jpg", "b.jpg", "c.jpg"},
+		Width:           1280,
+		Height:          720,
+		FPS:             30,
+		SecondsPerImage: 4,
+		Transition:      TransitionNone,
+		Motion:          MotionKenBurns,
+		ClipMotions:     []MotionStyle{"", MotionPanLeft}, // only image 1 overridden
+		Output:          "o.mp4",
+	})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	g := plan.Graph.String()
+	// Image 1 (v1) uses the pan path (animated crop, no zoompan).
+	if !strings.Contains(g, "crop=1280:720:x='(iw-ow)*(1-t/4)':y='(ih-oh)/2',setsar=1,format=yuv420p[v1]") {
+		t.Errorf("expected pan_left override on v1 in:\n%s", g)
+	}
+	// Images 0 and 2 keep ken_burns (zoompan).
+	if !strings.Contains(g, "zoompan=z='min(1+") {
+		t.Errorf("expected ken_burns zoompan on the non-overridden clips in:\n%s", g)
+	}
+}
+
+// V3: per-clip durations drive both the input -t and the cumulative xfade
+// offsets (offset_k = sum(durs[:k]) - k*trans).
+func TestCompile_PerClipDurations(t *testing.T) {
+	plan, err := Compile(Spec{
+		Images:            []string{"a.jpg", "b.jpg", "c.jpg"},
+		Width:             1280,
+		Height:            720,
+		FPS:               30,
+		SecondsPerImage:   4,
+		Transition:        TransitionFade,
+		TransitionSeconds: 1,
+		Motion:            MotionNone,
+		ClipDurations:     []float64{2, 5, 0}, // image 2 falls back to the global 4
+		Output:            "o.mp4",
+	})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	args := strings.Join(plan.ToArgs(), " ")
+	if !strings.Contains(args, "-loop 1 -t 2 -i a.jpg") ||
+		!strings.Contains(args, "-loop 1 -t 5 -i b.jpg") ||
+		!strings.Contains(args, "-loop 1 -t 4 -i c.jpg") {
+		t.Errorf("per-clip input durations wrong in:\n%s", args)
+	}
+	g := plan.Graph.String()
+	// offset_1 = dur0 - 1*trans = 2 - 1 = 1.
+	if !strings.Contains(g, "duration=1:offset=1[") {
+		t.Errorf("expected first offset 1 in:\n%s", g)
+	}
+	// offset_2 = (dur0+dur1) - 2*trans = (2+5) - 2 = 5.
+	if !strings.Contains(g, "duration=1:offset=5[vmerged]") {
+		t.Errorf("expected second offset 5 in:\n%s", g)
+	}
+}
+
+// V3: per-clip transition style overrides the join; unset joins keep the global.
+func TestCompile_PerClipTransition(t *testing.T) {
+	plan, err := Compile(Spec{
+		Images:            []string{"a.jpg", "b.jpg", "c.jpg"},
+		Width:             1280,
+		Height:            720,
+		FPS:               30,
+		SecondsPerImage:   4,
+		Transition:        TransitionFade,
+		TransitionSeconds: 1,
+		Motion:            MotionNone,
+		ClipTransitions:   []TransitionStyle{TransitionWipe, ""}, // join 0 → wipe, join 1 → global fade
+		Output:            "o.mp4",
+	})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	g := plan.Graph.String()
+	if !strings.Contains(g, "xfade=transition=wipeleft:duration=1:offset=3") {
+		t.Errorf("expected first join overridden to wipe in:\n%s", g)
+	}
+	if !strings.Contains(g, "xfade=transition=fade:duration=1:offset=6") {
+		t.Errorf("expected second join to keep global fade in:\n%s", g)
+	}
+}
+
 func TestCompile_Errors(t *testing.T) {
 	if _, err := Compile(Spec{Width: 1920, Height: 1080, FPS: 30, SecondsPerImage: 4}); err == nil {
 		t.Error("expected error for no images")

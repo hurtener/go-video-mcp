@@ -89,6 +89,11 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 	beatSync := in.BeatSync && in.BPM > 0
 	blended := slideshow.TransitionStyle(transition) != slideshow.TransitionNone && len(images) > 1
 
+	// V3 per-clip overrides: split the sparse Clips slice into the parallel
+	// override slices the compiler consumes. Empty/zero entries fall back to the
+	// global settings inside the compiler, so we pass them through verbatim.
+	clipMotions, clipDurations, clipTransitions := splitClips(in.Clips)
+
 	// Captions (V4): rasterise each to a full-canvas overlay PNG (pure Go) and
 	// hand the compiler the paths + time windows. captionWarn surfaces any
 	// reason captions were skipped.
@@ -106,6 +111,9 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		Transition:          slideshow.TransitionStyle(transition),
 		TransitionSeconds:   transSecs,
 		Motion:              slideshow.MotionStyle(motion),
+		ClipMotions:         clipMotions,
+		ClipDurations:       clipDurations,
+		ClipTransitions:     clipTransitions,
 		Grade:               slideshow.ColorGrade(grade),
 		AudioPath:           audioPath,
 		AudioFadeInSeconds:  in.AudioFadeInSeconds,
@@ -133,6 +141,9 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 	warnings := plannedWarnings(in)
 	if captionWarn != "" {
 		warnings = append(warnings, captionWarn)
+	}
+	if !blended && hasClipTransition(in.Clips) {
+		warnings = append(warnings, "per-clip transitions are ignored on a hard-cut reel; set a global transition_style other than \"none\" to use them")
 	}
 
 	// Report the effective per-image time — beat-sync rounds it to whole beats.
@@ -270,6 +281,53 @@ func plannedWarnings(in contracts.CreateCinematicImageVideoInput) []string {
 		w = append(w, "safe_area is accepted but not yet enforced (planned)")
 	}
 	return w
+}
+
+// splitClips turns the sparse per-clip override slice into the parallel slices
+// the compiler consumes (motions, durations, transitions). Each is allocated
+// only when at least one entry sets that field, so an all-empty Clips slice
+// leaves every override nil and the render is identical to the global path.
+func splitClips(clips []contracts.PerClip) (motions []slideshow.MotionStyle, durations []float64, transitions []slideshow.TransitionStyle) {
+	if len(clips) == 0 {
+		return nil, nil, nil
+	}
+	var anyMotion, anyDur, anyTrans bool
+	for _, c := range clips {
+		anyMotion = anyMotion || c.Motion != ""
+		anyDur = anyDur || c.DurationSeconds > 0
+		anyTrans = anyTrans || c.Transition != ""
+	}
+	if anyMotion {
+		motions = make([]slideshow.MotionStyle, len(clips))
+	}
+	if anyDur {
+		durations = make([]float64, len(clips))
+	}
+	if anyTrans {
+		transitions = make([]slideshow.TransitionStyle, len(clips))
+	}
+	for i, c := range clips {
+		if anyMotion {
+			motions[i] = slideshow.MotionStyle(c.Motion)
+		}
+		if anyDur {
+			durations[i] = c.DurationSeconds
+		}
+		if anyTrans {
+			transitions[i] = slideshow.TransitionStyle(c.Transition)
+		}
+	}
+	return motions, durations, transitions
+}
+
+// hasClipTransition reports whether any per-clip entry sets a transition.
+func hasClipTransition(clips []contracts.PerClip) bool {
+	for _, c := range clips {
+		if c.Transition != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // evenInt rounds up to the nearest even integer (libx264 needs even dims).

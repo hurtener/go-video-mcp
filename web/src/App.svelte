@@ -117,11 +117,14 @@
       }));
     }
     if (Array.isArray(input.images) && clips.length === 0) {
-      clips = input.images.map((p) => ({
+      clips = input.images.map((p, i) => ({
         id: nextId(),
         name: baseName(p),
         path: p,
         status: 'ready' as const,
+        motion: input.clips?.[i]?.motion,
+        transition: input.clips?.[i]?.transition,
+        duration: input.clips?.[i]?.duration_seconds,
       }));
     }
   });
@@ -309,6 +312,15 @@
       .filter((c) => c.text.trim() && c.end > c.start)
       .map((c) => ({ text: c.text, start_seconds: c.start, end_seconds: c.end, position: c.position }));
     if (caps.length) args.captions = caps;
+    // V3 per-clip overrides — aligned to the rendered images by index. Only sent
+    // when at least one clip carries an override (else the globals apply).
+    if (readyClips.some((c) => c.motion || c.transition || (c.duration && c.duration > 0))) {
+      args.clips = readyClips.map((c) => ({
+        ...(c.motion ? { motion: c.motion } : {}),
+        ...(c.transition ? { transition: c.transition } : {}),
+        ...(c.duration && c.duration > 0 ? { duration_seconds: c.duration } : {}),
+      }));
+    }
     try {
       const res = await bridge.callTool<CinematicInput, CinematicOutput>(
         'create_cinematic_image_video',
@@ -373,7 +385,7 @@
   {/if}
 
   <div class="film-row">
-    <Filmstrip bind:clips onAdd={addFiles} onRemove={removeClip} />
+    <Filmstrip bind:clips onAdd={addFiles} onRemove={removeClip} onUpdate={update} />
     <div class="browse">
       <button class="ghost-btn" onclick={toggleBrowse}><Icon name="folder" size={15} /> Browse</button>
       {#if browseOpen}

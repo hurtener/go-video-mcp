@@ -37,6 +37,27 @@
     "motion_style": {
       "type": "string"
     },
+    "clips": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "motion": {
+            "type": "string"
+          },
+          "transition": {
+            "type": "string"
+          },
+          "duration_seconds": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "color_grade": {
       "type": "string"
     },

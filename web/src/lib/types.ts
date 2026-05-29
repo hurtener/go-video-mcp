@@ -13,6 +13,8 @@ export const MOTION_OPTIONS = [
   { value: 'slow_push', label: 'Slow Push' },
   { value: 'pan_left', label: 'Pan Left' },
   { value: 'pan_right', label: 'Pan Right' },
+  { value: 'diagonal_drift', label: 'Diagonal Drift' },
+  { value: 'parallax_like', label: 'Parallax' },
   { value: 'none', label: 'None' },
 ] as const;
 
@@ -110,7 +112,15 @@ export interface Clip {
   previewUrl?: string;
   status: ClipStatus;
   error?: string;
+  // V3 per-clip overrides (empty/0 → inherit the global setting).
+  motion?: string;
+  transition?: string;
+  duration?: number;
 }
+
+// Per-clip override option lists prepend an "Inherit" choice (empty value).
+export const CLIP_MOTION_OPTIONS = [{ value: '', label: 'Inherit' }, ...MOTION_OPTIONS] as const;
+export const CLIP_TRANSITION_OPTIONS = [{ value: '', label: 'Inherit' }, ...TRANSITION_OPTIONS] as const;
 
 export interface AudioBed {
   name: string;
@@ -157,6 +167,7 @@ export interface CinematicInput {
   beat_sync?: boolean;
   bpm?: number;
   captions?: Array<{ text: string; start_seconds: number; end_seconds: number; position: string }>;
+  clips?: Array<{ motion?: string; transition?: string; duration_seconds?: number }>;
 }
 
 export interface IngestMediaOutput {

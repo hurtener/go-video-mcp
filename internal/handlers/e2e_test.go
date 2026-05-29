@@ -238,6 +238,57 @@ func TestCinematicAudioV5E2E(t *testing.T) {
 	}
 }
 
+// TestCinematicPerClipE2E renders a reel mixing per-clip motion, duration, and
+// transition overrides (V3) against real FFmpeg and verifies the output length
+// reflects the variable per-clip durations. Gated by FFMPEG_E2E.
+func TestCinematicPerClipE2E(t *testing.T) {
+	if os.Getenv("FFMPEG_E2E") == "" {
+		t.Skip("set FFMPEG_E2E=1 to run the real-FFmpeg per-clip test")
+	}
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skipf("ffmpeg not on PATH: %v", err)
+	}
+
+	root := t.TempDir()
+	imgs := makeImages(t, root, 3, 800, 800)
+	out := filepath.Join(root, "reel.mp4")
+
+	k, err := kernel.New(kernel.Config{AllowedRoots: []string{root}, Timeout: 2 * time.Minute})
+	if err != nil {
+		t.Fatalf("kernel.New: %v", err)
+	}
+	h := handlers.New(k, root)
+
+	res, err := h.CreateCinematicImageVideo(context.Background(), contracts.CreateCinematicImageVideoInput{
+		Images:            imgs,
+		OutputPath:        out,
+		Canvas:            "1280x720",
+		TransitionStyle:   "fade",
+		TransitionSeconds: 1,
+		MotionStyle:       "ken_burns",
+		DurationPerImage:  3,
+		Clips: []contracts.PerClip{
+			{Motion: "diagonal_drift", DurationSeconds: 2},
+			{Motion: "parallax_like", Transition: "wipe", DurationSeconds: 4},
+			{Motion: "pan_right"}, // duration inherits the global 3
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateCinematicImageVideo: %v", err)
+	}
+	got := res.Structured
+	// Per-clip motions in the graph.
+	for _, want := range []string{"(iw-iw/zoom)*(0.15+0.7*", "(iw-iw/zoom)*(0.8-0.6*", "xfade=transition=wipeleft"} {
+		if !strings.Contains(got.FilterComplex, want) {
+			t.Errorf("expected %q in graph:\n%s", want, got.FilterComplex)
+		}
+	}
+	// total = (2+4+3) - 2*1 = 7s.
+	if got.Render.DurationSec < 6 || got.Render.DurationSec > 8 {
+		t.Errorf("duration = %.2fs, want ~7s", got.Render.DurationSec)
+	}
+}
+
 func makeImages(t *testing.T, dir string, n, w, h int) []string {
 	t.Helper()
 	colors := []string{"red", "green", "blue", "orange"}

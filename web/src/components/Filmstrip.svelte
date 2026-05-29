@@ -5,16 +5,33 @@
   import { dndzone, type DndEvent } from 'svelte-dnd-action';
   import { flip } from 'svelte/animate';
   import Icon from './Icon.svelte';
-  import type { Clip } from '../lib/types.js';
+  import { CLIP_MOTION_OPTIONS, CLIP_TRANSITION_OPTIONS, type Clip } from '../lib/types.js';
 
   interface Props {
     clips: Clip[];
     onAdd: (files: FileList) => void;
     onRemove: (id: string) => void;
+    onUpdate: (id: string, patch: Partial<Clip>) => void;
   }
-  let { clips = $bindable(), onAdd, onRemove }: Props = $props();
+  let { clips = $bindable(), onAdd, onRemove, onUpdate }: Props = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
+  // V3: which clip's per-clip override panel is open (null = none).
+  let editingId = $state<string | null>(null);
+
+  const editing = $derived(clips.find((c) => c.id === editingId) ?? null);
+  const editingIndex = $derived(clips.findIndex((c) => c.id === editingId));
+  const isLast = $derived(editingIndex === clips.length - 1);
+
+  function hasOverride(c: Clip): boolean {
+    return !!(c.motion || c.transition || (c.duration && c.duration > 0));
+  }
+  function toggleEdit(id: string) {
+    editingId = editingId === id ? null : id;
+  }
+  function clearOverrides(id: string) {
+    onUpdate(id, { motion: '', transition: '', duration: undefined });
+  }
 
   function consider(e: CustomEvent<DndEvent<Clip>>) {
     clips = e.detail.items;
@@ -50,10 +67,24 @@
           <div class="badge spin" title="Uploading…"></div>
         {:else if clip.status === 'error'}
           <div class="badge err" title={clip.error ?? 'Failed'}><Icon name="alert" size={12} /></div>
+        {:else if hasOverride(clip)}
+          <div class="badge ov" title="Has per-clip overrides"></div>
         {/if}
         <button class="remove" title="Remove" aria-label="Remove {clip.name}" onclick={() => onRemove(clip.id)}>
           <Icon name="x" size={12} />
         </button>
+        {#if clip.status === 'ready'}
+          <button
+            class="edit"
+            class:on={editingId === clip.id}
+            title="Per-clip overrides"
+            aria-label="Edit clip {clip.name}"
+            data-dnd-ignore
+            onclick={() => toggleEdit(clip.id)}
+          >
+            <Icon name="sliders" size={12} />
+          </button>
+        {/if}
       </div>
     {/each}
 
@@ -62,6 +93,55 @@
       <span>add</span>
     </button>
   </div>
+
+  {#if editing}
+    <!-- V3 per-clip inspector: override motion / transition / duration for the
+         selected still; "Inherit" / blank falls back to the global settings. -->
+    <div class="clip-inspector">
+      <div class="ci-head">
+        <span class="ci-title">Clip {editingIndex + 1} · {editing.name}</span>
+        <div class="ci-actions">
+          {#if hasOverride(editing)}
+            <button class="ci-reset" onclick={() => clearOverrides(editing!.id)}>Reset</button>
+          {/if}
+          <button class="ci-close" aria-label="Close" onclick={() => (editingId = null)}><Icon name="x" size={13} /></button>
+        </div>
+      </div>
+      <div class="ci-fields">
+        <label>
+          Motion
+          <select value={editing.motion ?? ''} onchange={(e) => onUpdate(editing!.id, { motion: (e.currentTarget as HTMLSelectElement).value })}>
+            {#each CLIP_MOTION_OPTIONS as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+          </select>
+        </label>
+        <label class:dim={isLast}>
+          Transition
+          <select
+            value={editing.transition ?? ''}
+            disabled={isLast}
+            title={isLast ? 'The last clip has no following transition' : 'Transition into the next clip'}
+            onchange={(e) => onUpdate(editing!.id, { transition: (e.currentTarget as HTMLSelectElement).value })}
+          >
+            {#each CLIP_TRANSITION_OPTIONS as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+          </select>
+        </label>
+        <label>
+          Seconds
+          <input
+            type="number"
+            min="0"
+            step="0.5"
+            placeholder="auto"
+            value={editing.duration ?? ''}
+            onchange={(e) => {
+              const v = parseFloat((e.currentTarget as HTMLInputElement).value);
+              onUpdate(editing!.id, { duration: Number.isFinite(v) && v > 0 ? v : undefined });
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  {/if}
 
   <input
     bind:this={fileInput}
@@ -150,6 +230,14 @@
     background: var(--fl-error);
     color: #fff;
   }
+  .badge.ov {
+    width: 9px;
+    height: 9px;
+    top: 5px;
+    left: 5px;
+    background: var(--fl-accent-2);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+  }
   @keyframes spin {
     to {
       transform: rotate(360deg);
@@ -173,6 +261,108 @@
   }
   .frame:hover .remove {
     opacity: 1;
+  }
+  .edit {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease;
+  }
+  .frame:hover .edit {
+    opacity: 1;
+  }
+  .edit.on {
+    opacity: 1;
+    background: var(--fl-accent);
+    color: #1a1206;
+  }
+  .clip-inspector {
+    margin-top: 4px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--fl-panel-2);
+    border: 1px solid color-mix(in srgb, var(--fl-accent) 35%, var(--fl-hairline));
+  }
+  .ci-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .ci-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fl-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ci-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  .ci-reset {
+    border: none;
+    background: none;
+    color: var(--fl-muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .ci-reset:hover {
+    color: var(--fl-accent);
+  }
+  .ci-close {
+    border: none;
+    background: none;
+    color: var(--fl-muted);
+    display: inline-flex;
+    cursor: pointer;
+  }
+  .ci-close:hover {
+    color: var(--fl-text);
+  }
+  .ci-fields {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .ci-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fl-muted);
+  }
+  .ci-fields label.dim {
+    opacity: 0.5;
+  }
+  .ci-fields select,
+  .ci-fields input {
+    padding: 5px 7px;
+    border-radius: 7px;
+    border: 1px solid var(--fl-hairline);
+    background: var(--fl-canvas);
+    color: var(--fl-text);
+    font-size: 12px;
+    min-width: 92px;
+  }
+  .ci-fields input {
+    width: 70px;
+    min-width: 0;
   }
   .add {
     display: flex;

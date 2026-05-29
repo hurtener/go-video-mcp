@@ -18,11 +18,12 @@ type MotionStyle string
 
 const (
 	MotionNone     MotionStyle = "none"
-	MotionKenBurns MotionStyle = "ken_burns"     // gentle centred zoom-in
-	MotionSlowPush MotionStyle = "slow_push"     // stronger centred zoom-in
-	MotionPanLeft  MotionStyle = "pan_left"      // drift right→left
-	MotionPanRight MotionStyle = "pan_right"     // drift left→right
-	MotionParallax MotionStyle = "parallax_like" // first cut: aliased to ken_burns
+	MotionKenBurns MotionStyle = "ken_burns"      // gentle centred zoom-in
+	MotionSlowPush MotionStyle = "slow_push"      // stronger centred zoom-in
+	MotionPanLeft  MotionStyle = "pan_left"       // drift right→left
+	MotionPanRight MotionStyle = "pan_right"      // drift left→right
+	MotionParallax MotionStyle = "parallax_like"  // pronounced zoom + horizontal slide
+	MotionDiagonal MotionStyle = "diagonal_drift" // zoom + drift across both axes
 )
 
 // ColorGrade selects a final look applied to the whole reel.

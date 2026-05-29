@@ -220,8 +220,10 @@ type ReadMediaOutput struct {
 type TransitionStyle string
 
 // MotionStyle selects the per-image camera motion (the "Ken Burns" family).
-// Allowed: "none", "ken_burns", "slow_push", "pan_left", "pan_right",
-// "parallax_like".
+// Allowed: "none", "ken_burns" (gentle centred push), "slow_push" (stronger
+// centred push), "pan_left" / "pan_right" (lateral drift, no zoom),
+// "diagonal_drift" (zoom while drifting across both axes), "parallax_like"
+// (a pronounced zoom with a horizontal slide — a parallax feel).
 type MotionStyle string
 
 // ColorGrade selects the final cinematic look applied to the whole reel.
@@ -249,6 +251,24 @@ type Caption struct {
 	EndSeconds   float64 `json:"end_seconds"`
 	// Position is a named placement ("lower_third", "center", "top").
 	Position string `json:"position,omitempty"`
+}
+
+// PerClip carries optional per-image overrides for the flagship tool, indexed
+// to Images (clip i overrides image i). It is sparse: set only the fields you
+// want to customise; an empty/zero field inherits the corresponding global
+// setting. The Clips slice may be shorter than Images — unlisted images use the
+// globals throughout.
+type PerClip struct {
+	// Motion overrides MotionStyle for this image. Empty inherits the global.
+	Motion MotionStyle `json:"motion,omitempty"`
+	// Transition overrides the transition style INTO the next image (the join
+	// after this clip). Empty inherits the global. Ignored on the last image and
+	// when the global transition is "none" (a hard-cut reel — per-join hard cuts
+	// inside a blended reel are not yet supported).
+	Transition TransitionStyle `json:"transition,omitempty"`
+	// DurationSeconds overrides this image's on-screen seconds. Zero inherits the
+	// resolved global per-image duration.
+	DurationSeconds float64 `json:"duration_seconds,omitempty"`
 }
 
 // CreateCinematicImageVideoInput is the input for the flagship tool: it compiles
@@ -280,8 +300,13 @@ type CreateCinematicImageVideoInput struct {
 	TransitionStyle TransitionStyle `json:"transition_style,omitempty"`
 	// TransitionSeconds is the crossfade duration. Defaults to 1.
 	TransitionSeconds float64 `json:"transition_seconds,omitempty"`
-	// MotionStyle selects per-image camera motion. Defaults to "ken_burns".
+	// MotionStyle selects the default per-image camera motion. Defaults to
+	// "ken_burns". Override individual images with Clips.
 	MotionStyle MotionStyle `json:"motion_style,omitempty"`
+	// Clips optionally overrides motion / transition / duration per image,
+	// indexed to Images (sparse; may be shorter than Images). The global fields
+	// remain the defaults for any image or field left unset.
+	Clips []PerClip `json:"clips,omitempty"`
 	// ColorGrade selects the final look. Defaults to "neutral".
 	ColorGrade ColorGrade `json:"color_grade,omitempty"`
 	// BackgroundAudio is an optional music bed (audio file path).

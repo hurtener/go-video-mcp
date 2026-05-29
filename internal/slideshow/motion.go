@@ -26,7 +26,7 @@ func segmentFilters(style MotionStyle, w, h, fps int, dur float64) []string {
 	switch style {
 	case MotionPanLeft, MotionPanRight:
 		return panSegment(style, w, h, fps, dur)
-	case MotionKenBurns, MotionSlowPush, MotionParallax:
+	case MotionKenBurns, MotionSlowPush, MotionParallax, MotionDiagonal:
 		return zoomSegment(style, w, h, fps, frames)
 	default: // MotionNone / unknown
 		return []string{
@@ -39,11 +39,24 @@ func segmentFilters(style MotionStyle, w, h, fps int, dur float64) []string {
 	}
 }
 
-// zoomSegment builds a centred zoom-in segment via zoompan.
+// zoomSegment builds a zoom-in segment via zoompan. The zoom ramp is shared by
+// the whole family; the crop-window path (x,y) is what distinguishes them:
+//   - ken_burns / slow_push: a centred push (no drift).
+//   - diagonal_drift: the window drifts across both axes (a true diagonal move).
+//   - parallax_like: a pronounced zoom with a horizontal slide (foreground-
+//     parallax feel) — distinct from the centred ken_burns it used to alias.
+//
+// x/y reference zoompan's per-output-frame `on` (0..frames-1). The available
+// slack at the current zoom is (iw - iw/zoom) horizontally and (ih - ih/zoom)
+// vertically; a centred window sits at half that. Drifts move a fraction of the
+// slack across the segment so the subject never leaves frame.
 func zoomSegment(style MotionStyle, w, h, fps, frames int) []string {
 	zmax := 1.12
-	if style == MotionSlowPush {
+	switch style {
+	case MotionSlowPush:
 		zmax = 1.20
+	case MotionParallax:
+		zmax = 1.18
 	}
 	// Per-frame zoom increment so z climbs from 1.0 to zmax across the segment.
 	denom := frames - 1
@@ -51,6 +64,22 @@ func zoomSegment(style MotionStyle, w, h, fps, frames int) []string {
 		denom = 1
 	}
 	rate := (zmax - 1.0) / float64(denom)
+	// p is the normalised progress 0..1 across the segment's output frames.
+	p := fmt.Sprintf("(on/%d)", denom)
+
+	xCenter := "iw/2-(iw/zoom/2)"
+	yCenter := "ih/2-(ih/zoom/2)"
+	x, y := xCenter, yCenter
+	switch style {
+	case MotionDiagonal:
+		// Drift across 70% of the slack on both axes (upper-left → lower-right).
+		x = fmt.Sprintf("(iw-iw/zoom)*(0.15+0.7*%s)", p)
+		y = fmt.Sprintf("(ih-ih/zoom)*(0.15+0.7*%s)", p)
+	case MotionParallax:
+		// Horizontal slide right→left over 60% of the slack, vertically centred —
+		// the slide against the zoom reads as parallax.
+		x = fmt.Sprintf("(iw-iw/zoom)*(0.8-0.6*%s)", p)
+	}
 
 	bw, bh := even(w*2), even(h*2) // 2× working frame to suppress jitter
 	z := fmt.Sprintf("min(1+%s*on,%s)", f(rate), f(zmax))
@@ -58,7 +87,7 @@ func zoomSegment(style MotionStyle, w, h, fps, frames int) []string {
 		fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=increase", bw, bh),
 		fmt.Sprintf("crop=%d:%d", bw, bh),
 		fmt.Sprintf("fps=%d", fps),
-		fmt.Sprintf("zoompan=z='%s':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=%dx%d:fps=%d", z, w, h, fps),
+		fmt.Sprintf("zoompan=z='%s':x='%s':y='%s':d=1:s=%dx%d:fps=%d", z, x, y, w, h, fps),
 		"setsar=1",
 		"format=yuv420p",
 	}
