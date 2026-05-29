@@ -26,6 +26,8 @@ graph (labeled streams, per-image motion, transitions, colour grade, music bed).
 | `convert_video` | Re-encode to a new container / codec / size / frame rate. |
 | `trim_video` | Cut a `[start, end)` range (fast stream-copy or frame-accurate). |
 | `extract_audio` | Pull the audio track out to mp3 / m4a / wav / flac. |
+| `list_media` | Browse images/audio/video under the server's allowed roots. |
+| `ingest_media` | Persist a UI-uploaded file (base64) and return a readable path. |
 | `create_cinematic_image_video` | **Flagship.** Compile images into a cinematic slideshow. |
 
 ### `create_cinematic_image_video`
@@ -45,6 +47,17 @@ caller can inspect or refine the render.
 Captions, watermark, beat-sync, and safe-area are accepted by the contract today
 and reported back as warnings until their render layers land (see the roadmap).
 
+## Frameline Studio (MCP App)
+
+`create_cinematic_image_video` is wired to **Frameline Studio**, an inline MCP
+App (Svelte) that renders in the host's chat surface: drop stills, reorder the
+filmstrip, set canvas / motion / transition / look, add a faded music bed, and
+render — then inspect the compiled `filter_complex` "recipe". It calls
+`ingest_media` / `list_media` / `create_cinematic_image_video` through the
+Dockyard bridge. Design spec and mockups live in
+[`docs/design/frameline-studio.md`](./docs/design/frameline-studio.md); the app
+source is in [`web/`](./web/).
+
 ## Architecture
 
 ```text
@@ -56,6 +69,8 @@ internal/slideshow/   The slideshow compiler: a declarative Spec → a typed
                       FilterGraph → a kernel.Plan. Pure (no I/O), golden-tested.
 internal/contracts/   Typed Go contracts (source of truth) + GENERATED schema/TS.
 internal/handlers/    One thin handler per tool, over the kernel.
+web/                  Frameline Studio — the Svelte MCP App (single-file bundle,
+                      embedded into the binary and served as a ui:// resource).
 ```
 
 ## Run
@@ -97,6 +112,7 @@ The cinematic tool grows in layers:
 
 - ✅ V1 — crossfade / wipe / slide transitions
 - ✅ V2 — Ken Burns motion (zoompan) + pan presets
+- ✅ Frameline Studio — inline MCP App (upload, reorder, render, recipe)
 - ⏳ V3 — richer per-image motion presets (diagonal drift, parallax)
 - ⏳ V4 — captions / lower-thirds (drawtext, with safe escaping + font allowlist)
 - ⏳ V5 — audio ducking + loudness normalisation
