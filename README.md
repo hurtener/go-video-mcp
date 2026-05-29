@@ -115,7 +115,7 @@ The cinematic tool grows in layers:
 - ✅ Frameline Studio — inline MCP App (upload, reorder, render, recipe)
 - ✅ V4 — captions / lower-thirds (pure-Go rendered overlays + font allowlist)
 - ⏳ V3 — richer per-image motion presets (diagonal drift, parallax)
-- ⏳ V5 — audio ducking + loudness normalisation
+- ✅ V5 — audio polish (loudness normalise, BPM beat-sync, short-bed padding)
 - ✅ V6 — cinematic templates (`wedding_reel`, `product_launch`, `memory_montage`, `travel_diary`)
 - ⏳ V7 — storyboard JSON + preview thumbnails before the full render
 - ⏳ Additional tools — `create_slideshow`, `create_video_from_images`, `apply_video_effect`

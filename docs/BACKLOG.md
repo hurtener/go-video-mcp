@@ -58,8 +58,13 @@ UI → polish (no-host state, thumbnails) → more tools → infra/CI.
       PNGs composited via FFmpeg `overlay` (drawtext needs libfreetype, which the
       common ffmpeg build lacks). Font from an allowlist. Verified burned-in
       (top + lower-third) in a real render.
-- [ ] **V5** — audio: ducking, loudness normalize (`loudnorm`), `amix` when stills
-      carry audio, beat-detection for `beat_sync` (contract field exists).
+- [x] **V5** — audio polish: single-pass `loudnorm` (default on, `normalize_audio`
+      toggle), `bpm`-driven `beat_sync` (snaps the per-image advance to whole
+      beats so cuts land on the beat — no onset detection yet), and a closing
+      `apad` so a short bed never truncates the reel. UI: normalize + cut-to-beat
+      + BPM in the audio strip. Verified against real ffmpeg (−16 LUFS, beat-
+      aligned length, audio not truncated). Still open: ducking (needs a VO
+      input), true onset detection, `amix` when stills carry audio.
 - [x] **V6** — cinematic templates (`wedding_reel`, `product_launch`,
       `memory_montage`, `travel_diary`) — named presets that set canvas/motion/
       transition/grade/timing. Pure registry in `internal/templates`; precedence
