@@ -46,14 +46,21 @@ UI → polish (no-host state, thumbnails) → more tools → infra/CI.
 - [ ] **PiP** floating-monitor layout (preview + scrubber + status pill).
 - [ ] **list_media thumbnails** — browsed files have no preview bytes; fetch a
       thumbnail (read_media or a thumbnail tool) so the Browse panel shows images.
-- [ ] Per-clip selection + overrides UI (motion/transition/duration) — pairs with V3.
+- [x] Per-clip selection + overrides UI (motion/transition/duration) — a per-clip
+      inspector on each filmstrip thumbnail (paired with V3).
 - [ ] Drag-onto-stage upload (drop directly on the preview), multi-select Browse.
 - [ ] Timeline with transition markers + audio waveform alignment (fullscreen).
 
 ## Cinematic engine (create_cinematic_image_video layers)
 
-- [ ] **V3** — richer per-image motion presets (diagonal drift, true `parallax_like`;
-      today parallax aliases ken_burns) + per-clip overrides in the contract.
+- [x] **V3** — richer per-image motion + per-clip overrides. New presets
+      `diagonal_drift` (zoom + dual-axis drift) and a now-distinct `parallax_like`
+      (stronger zoom + horizontal slide, no longer aliased to ken_burns). Per-clip
+      overrides via a sparse `clips[]` (motion / transition / duration) indexed to
+      images; the compiler uses cumulative xfade offsets so durations may differ.
+      UI: a per-clip inspector on each filmstrip thumbnail. Verified mixed presets
+      + variable durations against real ffmpeg. (Open: per-join hard cuts inside a
+      blended reel.)
 - [x] **V4** — captions / lower-thirds. Implemented as pure-Go rendered overlay
       PNGs composited via FFmpeg `overlay` (drawtext needs libfreetype, which the
       common ffmpeg build lacks). Font from an allowlist. Verified burned-in
