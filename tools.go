@@ -1,12 +1,57 @@
 package main
 
 import (
+	"context"
+
 	"github.com/hurtener/dockyard/runtime/server"
 	"github.com/hurtener/dockyard/runtime/tool"
 
 	"github.com/hurtener/go-video-mcp/internal/contracts"
 	"github.com/hurtener/go-video-mcp/internal/handlers"
 )
+
+// uiToolMeta is the tool-definition _meta that links a tool to the Frameline
+// App. It carries BOTH the nested `_meta.ui.resourceUri` AND the flat
+// `_meta["ui/resourceUri"]` key.
+//
+// Why both: Dockyard's .UI() emits only the nested form (it treats the flat key
+// as deprecated). But Claude Desktop — like the official @modelcontextprotocol/
+// ext-apps SDK that renders there — reads the flat `ui/resourceUri` key to
+// render the App. A nested-only tool is recognised but never painted. Emitting
+// both matches the working reference exactly. (Dockyard issue: .UI() should emit
+// both for host compatibility.)
+func uiToolMeta() map[string]any {
+	return map[string]any{
+		"ui": map[string]any{
+			"resourceUri": appURI,
+			"visibility":  []string{"model", "app"},
+		},
+		"ui/resourceUri": appURI,
+	}
+}
+
+// registerUITool registers a UI-driving tool through AddToolWithSchemas so the
+// tool definition carries uiToolMeta (both _meta.ui key forms) — which the
+// builder's .UI() cannot emit today. It reuses the builder only to derive the
+// generated input/output schemas, and preserves the handler's Text + Structured.
+func registerUITool[In, Out any](
+	srv *server.Server,
+	name, desc string,
+	h func(context.Context, In) (tool.Result[Out], error),
+) error {
+	in, out, err := tool.New[In, Out](name).Describe(desc).Schemas()
+	if err != nil {
+		return err
+	}
+	return server.AddToolWithSchemas[In, Out](srv,
+		server.ToolDef{Name: name, Description: desc, Meta: uiToolMeta()},
+		in, out,
+		func(ctx context.Context, arg In) (server.ToolOutput[Out], error) {
+			res, herr := h(ctx, arg)
+			return server.ToolOutput[Out]{Text: res.Text, Structured: res.Structured}, herr
+		},
+	)
+}
 
 // registerTools declares and registers every tool this server exposes. The
 // handlers all run against one shared ffmpeg kernel, so the path-safety and
@@ -61,27 +106,26 @@ func registerTools(srv *server.Server, h *handlers.Handlers) error {
 		return err
 	}
 
-	if err := tool.New[contracts.OpenStudioInput, contracts.OpenStudioOutput]("open_studio").
-		Describe("Open the Frameline Studio composer card — the interactive surface to arrange stills, set the look, and render a cinematic reel. Call with no arguments to open an empty composer the user can drop stills into.").
-		UI(appName).
-		Handler(h.OpenStudio).
-		Register(srv); err != nil {
+	// UI-driving tools go through registerUITool so their _meta carries both
+	// `_meta.ui.resourceUri` forms Claude Desktop needs to render the App.
+	if err := registerUITool[contracts.OpenStudioInput, contracts.OpenStudioOutput](srv,
+		"open_studio",
+		"Open the Frameline Studio composer card — the interactive surface to arrange stills, set the look, and render a cinematic reel. Call with no arguments to open an empty composer the user can drop stills into.",
+		h.OpenStudio); err != nil {
 		return err
 	}
 
-	if err := tool.New[contracts.OpenMediaUploaderInput, contracts.OpenMediaUploaderOutput]("open_media_uploader").
-		Describe("Open the Media Uploader card so the user can drag in photos and music. Use this when the user wants to upload or add media. The card ingests dropped files onto the server and shows their paths, ready to compose into a reel.").
-		UI(appName).
-		Handler(h.OpenMediaUploader).
-		Register(srv); err != nil {
+	if err := registerUITool[contracts.OpenMediaUploaderInput, contracts.OpenMediaUploaderOutput](srv,
+		"open_media_uploader",
+		"Open the Media Uploader card so the user can drag in photos and music. Use this when the user wants to upload or add media. The card ingests dropped files onto the server and shows their paths, ready to compose into a reel.",
+		h.OpenMediaUploader); err != nil {
 		return err
 	}
 
-	if err := tool.New[contracts.CreateCinematicImageVideoInput, contracts.CreateCinematicImageVideoOutput]("create_cinematic_image_video").
-		Describe("Compile a sequence of images into a cinematic slideshow video: canvas preset, per-image Ken Burns motion, crossfade/wipe/slide transitions, a colour grade, and an optional faded music bed — all in one render. Returns the produced file and the compiled FFmpeg filtergraph.").
-		UI(appName).
-		Handler(h.CreateCinematicImageVideo).
-		Register(srv); err != nil {
+	if err := registerUITool[contracts.CreateCinematicImageVideoInput, contracts.CreateCinematicImageVideoOutput](srv,
+		"create_cinematic_image_video",
+		"Compile a sequence of images into a cinematic slideshow video: canvas preset, per-image Ken Burns motion, crossfade/wipe/slide transitions, a colour grade, and an optional faded music bed — all in one render. Returns the produced file and the compiled FFmpeg filtergraph.",
+		h.CreateCinematicImageVideo); err != nil {
 		return err
 	}
 
