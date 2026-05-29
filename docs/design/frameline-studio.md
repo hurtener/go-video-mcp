@@ -5,9 +5,18 @@
 > and a music track and watch an agent compose, grade, and refine a cinematic
 > reel — directly inside the chat surface.
 
-**Name.** *Frameline Studio* (working title). "Frameline" = the line between
-film frames + a timeline; cinematic, professional, brand-able, not tied to any
-single occasion. Alternates: *Reel Studio*, *Montage*, *Slate*.
+**Name.** *Frameline Studio*. "Frameline" = the line between film frames + a
+timeline; cinematic, professional, brand-able, not tied to any single occasion.
+
+**Locked visual direction.** The look below is realised in
+[`mockups/`](./mockups/):
+
+- [`01-inline-composer-card.png`](./mockups/01-inline-composer-card.png) — inline
+- [`02-fullscreen-editing-suite.png`](./mockups/02-fullscreen-editing-suite.png) — fullscreen
+- [`03-pip-floating-monitor.png`](./mockups/03-pip-floating-monitor.png) — PiP
+
+These are the design target. §9 maps every control in them to what the backend
+actually does today, so the built UI stays honest.
 
 ---
 
@@ -218,3 +227,49 @@ human does the taste. The inline composer card is a great screenshot; the
 fullscreen suite is a great demo video; the PiP monitor is a great "look, it
 keeps working while you talk" moment. Built on `go-video-mcp` + Dockyard — a clean
 kernel, a real `filter_complex` engine, contract-first.
+
+---
+
+## 9. Control → capability mapping (build honestly)
+
+The mockups are a north star and intentionally show more than the V1 backend can
+do. The **built** UI exposes only what `create_cinematic_image_video` honors
+today; aspirational controls are either hidden until their layer lands or shown
+disabled with a "coming" affordance — never a control that silently does nothing.
+
+**Inline composer card** — maps cleanly; this is the first build target.
+
+| Mockup control | Backend today | Action |
+| -------------- | ------------- | ------ |
+| Canvas 16:9 ▾ | `canvas` (presets + custom WxH) | ✅ ship |
+| Motion Ken Burns ▾ | `motion_style` | ✅ ship |
+| Look Warm ▾ | `color_grade` | ✅ ship |
+| song.mp3 · fade 1s/2s + waveform | `background_audio`, `audio_fade_in/out_seconds`; waveform via wavesurfer | ✅ ship (beat markers decorative until beat-sync) |
+| Filmstrip reorder / add | `images[]` order | ✅ ship |
+| Render the reel | `tools/call create_cinematic_image_video` | ✅ ship |
+| Preview + scrub | the **rendered** mp4 (no client-side pre-render) — poster/empty before first render | ✅ ship, honest about timing |
+| **Transition** | `transition_style` + `transition_seconds` — **missing from the mock** | ➕ add a 4th chip (or settings popover) |
+| ⚙ settings (top-right) | `fps`, `duration_per_image` / `total_duration`, `transition_seconds` | ✅ ship as an "advanced" popover |
+
+**Fullscreen suite** — north star; build progressively, only the real rows.
+
+| Mockup control | Backend today | Action |
+| -------------- | ------------- | ------ |
+| Aspect Ratio / Resolution | `canvas` (WxH) | ✅ |
+| FPS | `fps` | ✅ |
+| Transition Default + Duration | `transition_style` + `transition_seconds` | ✅ |
+| Grade LUT | `color_grade` | ✅ (named grade, not a LUT file) |
+| Timeline transition diamonds | per-join transition | ⏳ V3 (per-clip) |
+| Background colour | — | ⛔ not a tool param (drop or add later) |
+| Motion Stabilization + Amount | — | ⛔ not in tool; the real "Motion" row is the `motion_style` preset |
+| Grade Intensity / Rec.709·Log·HDR | — | ⛔ grades are fixed; no intensity/colorspace |
+| Per-clip Opacity/Speed/Position/Scale | — | ⛔ beyond scope; V3 per-clip = motion/transition/duration only |
+| Audio volume envelope / keyframes | — | ⏳ V5 (ducking, normalise) |
+| Color / Deliver pages, Autosave | — | ⛔ vision only (no project persistence yet) |
+
+**PiP monitor** — fully buildable: preview + scrubber + a render-status pill fed
+by the kernel's `-progress` stream (job id + percent), expand → fullscreen.
+
+**Principle.** A control that the backend can't honor does not ship enabled. When
+a layer lands (V3 per-clip, V5 audio), its controls light up — and the tool
+contract grows in the same PR (contract-first).
