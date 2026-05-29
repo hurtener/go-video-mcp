@@ -1,0 +1,8 @@
+{
+  "name": "empty",
+  "description": "No stills yet — the composer card shows its empty state (\"drop stills to begin\"). No images means nothing to render.",
+  "state": "empty",
+  "input": {
+    "images": []
+  }
+}

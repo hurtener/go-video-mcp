@@ -16,6 +16,7 @@
 
   import Icon from './components/Icon.svelte';
   import Chip from './components/Chip.svelte';
+  import TemplatePicker from './components/TemplatePicker.svelte';
   import Filmstrip from './components/Filmstrip.svelte';
   import AudioStrip from './components/AudioStrip.svelte';
   import CaptionsEditor from './components/CaptionsEditor.svelte';
@@ -27,6 +28,7 @@
     MOTION_OPTIONS,
     TRANSITION_OPTIONS,
     GRADE_OPTIONS,
+    TEMPLATES,
     nextId,
     fileToBase64,
     type Clip,
@@ -45,6 +47,7 @@
   let audio = $state<AudioBed | null>(null);
   let fadeIn = $state(1);
   let fadeOut = $state(2);
+  let template = $state('none');
   let canvas = $state('1920x1080');
   let fps = $state(30);
   let motion = $state('ken_burns');
@@ -88,6 +91,9 @@
   // input in the card so the human sees what the agent set.
   const offInput = bridge.onToolInput<CinematicInput>((input) => {
     if (!input) return;
+    // Apply a model-supplied template first so explicit fields below override it
+    // — mirrors the backend precedence (explicit > template > default).
+    if (input.template) applyTemplate(input.template);
     if (input.canvas) canvas = input.canvas;
     if (input.fps) fps = input.fps;
     if (input.motion_style) motion = input.motion_style;
@@ -249,6 +255,21 @@
     clips = [...clips, { id: nextId(), name: item.name, path: item.path, status: 'ready' }];
   }
 
+  // Picking a template pre-fills the look/motion/timing chips with its preset;
+  // the user can then tweak any of them. "Custom" (no preset) leaves them as-is.
+  function applyTemplate(value: string) {
+    template = value;
+    const preset = TEMPLATES.find((t) => t.value === value)?.preset;
+    if (!preset) return;
+    canvas = preset.canvas;
+    fps = preset.fps;
+    motion = preset.motion;
+    transition = preset.transition;
+    grade = preset.grade;
+    secondsPerImage = preset.secondsPerImage;
+    transitionSeconds = preset.transitionSeconds;
+  }
+
   async function render() {
     const images = readyClips.map((c) => c.path!) as string[];
     if (images.length === 0) {
@@ -261,6 +282,7 @@
       images,
       canvas,
       fps,
+      ...(template && template !== 'none' ? { template } : {}),
       motion_style: motion,
       transition_style: transition,
       color_grade: grade,
@@ -360,6 +382,8 @@
       {/if}
     </div>
   </div>
+
+  <TemplatePicker value={template} onPick={applyTemplate} />
 
   <div class="chips">
     <Chip icon="monitor" label="Canvas" bind:value={canvas} options={CANVAS_PRESETS} />

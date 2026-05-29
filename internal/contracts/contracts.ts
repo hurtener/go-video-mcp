@@ -347,6 +347,17 @@ export type MotionStyle = string;
  */
 export type ColorGrade = string;
 /**
+ * Template names a cinematic preset — a curated bundle of canvas, motion,
+ * transition, colour grade, and timing that yields a polished reel in one shot.
+ * The template only fills fields the caller leaves unset; any explicit field
+ * (canvas, motion_style, color_grade, …) overrides the template's value.
+ * Allowed: "none" (default — apply plain defaults), "wedding_reel" (warm,
+ * unhurried Ken Burns with soft dissolves), "product_launch" (punchy 9:16
+ * slow-push with quick slides, high contrast), "memory_montage" (nostalgic
+ * Ken Burns + vintage grade), "travel_diary" (lateral pans, wipes, cinematic).
+ */
+export type Template = string;
+/**
  * Caption is a timed text overlay (lower-third / title). Accepted by the
  * contract for forward-compatibility; rendering lands in a later layer (V4) and
  * any captions supplied today are reported back in Warnings, not yet burned in.
@@ -376,6 +387,12 @@ export interface CreateCinematicImageVideoInput {
    * Images are the ordered source image paths. At least one is required.
    */
   images: string[];
+  /**
+   * Template applies a named cinematic preset (canvas/motion/transition/grade/
+   * timing). It fills only the fields left unset below — any explicit field
+   * overrides the template. Defaults to "none" (plain defaults). See Template.
+   */
+  template?: Template;
   /**
    * OutputPath is the destination video (".mp4" recommended). Optional: when
    * empty, the server writes a uniquely-named reel into its work directory

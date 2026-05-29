@@ -1,0 +1,31 @@
+{
+  "name": "happy",
+  "description": "A finished wedding-reel render: three stills compiled with the wedding_reel template (warm grade, film dissolves, gentle Ken Burns) into a graded 15s reel, with the compiled filtergraph surfaced as the recipe.",
+  "state": "ready",
+  "input": {
+    "images": [
+      "/media/wedding/ceremony-01.jpg",
+      "/media/wedding/first-dance.jpg",
+      "/media/wedding/sparkler-exit.jpg"
+    ],
+    "template": "wedding_reel",
+    "background_audio": "/media/wedding/their-song.mp3",
+    "audio_fade_in_seconds": 1,
+    "audio_fade_out_seconds": 2
+  },
+  "output_override": {
+    "render": {
+      "output_path": "/media/wedding/frameline-work/reel.mp4",
+      "job_id": "job-7f3a9c2e",
+      "duration_sec": 13.8,
+      "width": 1920,
+      "height": 1080,
+      "size_bytes": 9482113,
+      "command": "ffmpeg -hide_banner -y -loop 1 -t 5 -i ceremony-01.jpg …"
+    },
+    "image_count": 3,
+    "per_image_seconds": 5,
+    "filter_complex": "[0:v]scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,fps=30,zoompan=z='min(1+0.001*on,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1920x1080:fps=30,setsar=1,format=yuv420p[v0];[1:v]…[v1];[2:v]…[v2];[v0][v1]xfade=transition=dissolve:duration=1.2:offset=3.8[x1];[x1][v2]xfade=transition=dissolve:duration=1.2:offset=7.6[vmerged];[vmerged]eq=saturation=1.06,colorbalance=rs=0.04:gs=0.01:bs=-0.05[vgraded];[vgraded]setsar=1,format=yuv420p[vout]",
+    "warnings": []
+  }
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/hurtener/go-video-mcp/internal/contracts"
 	"github.com/hurtener/go-video-mcp/internal/kernel"
 	"github.com/hurtener/go-video-mcp/internal/slideshow"
+	"github.com/hurtener/go-video-mcp/internal/templates"
 )
 
 // Defaults for the cinematic tool when the caller leaves a field unset.
@@ -57,52 +58,19 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		return fail(err)
 	}
 
-	// Canvas.
-	canvas := in.Canvas
-	if canvas == "" {
-		canvas = defaultCanvas
-	}
-	w, hh, err := parseWxH(canvas)
+	// Resolve canvas/fps/motion/transition/grade/timing, applying any V6
+	// template and the override precedence (explicit > template > default).
+	set, err := resolveSettings(in, len(images))
 	if err != nil {
 		return fail(err)
 	}
-	w, hh = evenInt(w), evenInt(hh)
-
-	fps := in.FPS
-	if fps <= 0 {
-		fps = defaultFPS
-	}
-
-	transition := in.TransitionStyle
-	if transition == "" {
-		transition = contracts.TransitionStyle(slideshow.TransitionFade)
-	}
-	transSecs := in.TransitionSeconds
-	if transSecs <= 0 {
-		transSecs = defaultTransitionSecs
-	}
-	blended := slideshow.TransitionStyle(transition) != slideshow.TransitionNone && len(images) > 1
-
-	// Resolve per-image duration. TotalDuration wins when set: derive the
-	// per-image on-screen time from the requested reel length, accounting for
-	// the transition overlap (total = n*d - (n-1)*t  ⇒  d = (total + (n-1)*t)/n).
-	perImage, err := resolveDuration(in, len(images), transSecs, blended)
-	if err != nil {
-		return fail(err)
-	}
-	// Keep the transition strictly shorter than the per-image duration.
-	if blended && transSecs >= perImage {
-		transSecs = perImage / 2
-	}
-
-	motion := in.MotionStyle
-	if motion == "" {
-		motion = contracts.MotionStyle(slideshow.MotionKenBurns)
-	}
-	grade := in.ColorGrade
-	if grade == "" {
-		grade = contracts.ColorGrade(slideshow.GradeNeutral)
-	}
+	w, hh := set.Width, set.Height
+	fps := set.FPS
+	transition := set.Transition
+	transSecs := set.TransitionSeconds
+	perImage := set.PerImage
+	motion := set.Motion
+	grade := set.Grade
 
 	// Optional audio bed.
 	var audioPath string
@@ -167,8 +135,88 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 	return tool.Result[contracts.CreateCinematicImageVideoOutput]{Text: text, Structured: out}, nil
 }
 
+// settings is the fully-resolved render configuration after applying the V6
+// template and the override precedence. Pure output of resolveSettings.
+type settings struct {
+	Width, Height     int
+	FPS               int
+	Transition        contracts.TransitionStyle
+	TransitionSeconds float64
+	Motion            contracts.MotionStyle
+	Grade             contracts.ColorGrade
+	PerImage          float64
+}
+
+// resolveSettings applies the V6 template (if any) and the override precedence
+// — explicit user field > template > hardcoded default — to produce the final
+// render settings. It is pure (no I/O) so the precedence is unit-testable
+// without invoking FFmpeg. n is the image count (affects timing + blending).
+func resolveSettings(in contracts.CreateCinematicImageVideoInput, n int) (settings, error) {
+	// A named preset contributes defaults for any field the caller left unset.
+	preset, _ := templates.Lookup(string(in.Template))
+
+	canvas := firstNonEmpty(in.Canvas, preset.Canvas, defaultCanvas)
+	w, hh, err := parseWxH(canvas)
+	if err != nil {
+		return settings{}, err
+	}
+	w, hh = evenInt(w), evenInt(hh)
+
+	fps := in.FPS
+	if fps <= 0 {
+		fps = preset.FPS
+	}
+	if fps <= 0 {
+		fps = defaultFPS
+	}
+
+	transition := contracts.TransitionStyle(firstNonEmpty(
+		string(in.TransitionStyle), preset.Transition, string(slideshow.TransitionFade)))
+
+	transSecs := in.TransitionSeconds
+	if transSecs <= 0 {
+		transSecs = preset.TransitionSeconds
+	}
+	if transSecs <= 0 {
+		transSecs = defaultTransitionSecs
+	}
+	blended := slideshow.TransitionStyle(transition) != slideshow.TransitionNone && n > 1
+
+	perImage, err := resolveDuration(in, n, transSecs, blended, preset.SecondsPerImage)
+	if err != nil {
+		return settings{}, err
+	}
+	// Keep the transition strictly shorter than the per-image duration.
+	if blended && transSecs >= perImage {
+		transSecs = perImage / 2
+	}
+
+	motion := contracts.MotionStyle(firstNonEmpty(
+		string(in.MotionStyle), preset.Motion, string(slideshow.MotionKenBurns)))
+	grade := contracts.ColorGrade(firstNonEmpty(
+		string(in.ColorGrade), preset.Grade, string(slideshow.GradeNeutral)))
+
+	return settings{
+		Width: w, Height: hh, FPS: fps,
+		Transition: transition, TransitionSeconds: transSecs,
+		Motion: motion, Grade: grade, PerImage: perImage,
+	}, nil
+}
+
+// firstNonEmpty returns the first non-empty string of its arguments.
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // resolveDuration derives the per-image on-screen time from the request.
-func resolveDuration(in contracts.CreateCinematicImageVideoInput, n int, transSecs float64, blended bool) (float64, error) {
+// presetPerImage is the template's per-image default (0 when none); it is used
+// only when the caller supplies neither TotalDuration nor DurationPerImage.
+func resolveDuration(in contracts.CreateCinematicImageVideoInput, n int, transSecs float64, blended bool, presetPerImage float64) (float64, error) {
 	if in.TotalDuration > 0 {
 		var d float64
 		if blended {
@@ -183,6 +231,9 @@ func resolveDuration(in contracts.CreateCinematicImageVideoInput, n int, transSe
 	}
 	if in.DurationPerImage > 0 {
 		return in.DurationPerImage, nil
+	}
+	if presetPerImage > 0 {
+		return presetPerImage, nil
 	}
 	return defaultSecondsPerImage, nil
 }

@@ -34,6 +34,53 @@ export const GRADE_OPTIONS = [
   { value: 'high_contrast', label: 'High Contrast' },
 ] as const;
 
+// A TemplatePreset mirrors the Go templates.Preset registry (internal/templates).
+// Picking a template pre-fills the chips with these values; the user can then
+// tweak any of them. Keep these in sync with internal/templates/templates.go.
+export interface TemplatePreset {
+  canvas: string;
+  fps: number;
+  motion: string;
+  transition: string;
+  transitionSeconds: number;
+  grade: string;
+  secondsPerImage: number;
+}
+
+// TEMPLATES are the V6 cinematic presets. "none" carries no preset (Custom).
+export const TEMPLATES: ReadonlyArray<{
+  value: string;
+  label: string;
+  hint: string;
+  preset?: TemplatePreset;
+}> = [
+  { value: 'none', label: 'Custom', hint: 'Set every control yourself.' },
+  {
+    value: 'wedding_reel',
+    label: 'Wedding Reel',
+    hint: 'Warm, unhurried — gentle Ken Burns, soft dissolves.',
+    preset: { canvas: '1920x1080', fps: 30, motion: 'ken_burns', transition: 'film_dissolve', transitionSeconds: 1.2, grade: 'warm', secondsPerImage: 5 },
+  },
+  {
+    value: 'product_launch',
+    label: 'Product Launch',
+    hint: 'Punchy 9:16 — slow push, quick slides, high contrast.',
+    preset: { canvas: '1080x1920', fps: 30, motion: 'slow_push', transition: 'slide', transitionSeconds: 0.6, grade: 'high_contrast', secondsPerImage: 3 },
+  },
+  {
+    value: 'memory_montage',
+    label: 'Memory Montage',
+    hint: 'Nostalgic — easy Ken Burns, crossfades, vintage grade.',
+    preset: { canvas: '1920x1080', fps: 30, motion: 'ken_burns', transition: 'fade', transitionSeconds: 1.0, grade: 'vintage', secondsPerImage: 4 },
+  },
+  {
+    value: 'travel_diary',
+    label: 'Travel Diary',
+    hint: 'Breezy — lateral pans, directional wipes, cinematic grade.',
+    preset: { canvas: '1920x1080', fps: 30, motion: 'pan_right', transition: 'wipe', transitionSeconds: 0.8, grade: 'cinematic', secondsPerImage: 4 },
+  },
+] as const;
+
 export const CAPTION_POSITIONS = [
   { value: 'lower_third', label: 'Lower third' },
   { value: 'top', label: 'Top' },
@@ -94,6 +141,7 @@ export interface CinematicOutput {
 export interface CinematicInput {
   images: string[];
   output_path?: string;
+  template?: string;
   canvas?: string;
   fps?: number;
   duration_per_image?: number;

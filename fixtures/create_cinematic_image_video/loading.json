@@ -1,0 +1,14 @@
+{
+  "name": "loading",
+  "description": "A render in flight — the stills are set and the card shows its composing/rendering state while FFmpeg works.",
+  "state": "loading",
+  "input": {
+    "images": [
+      "/media/trip/dunes.jpg",
+      "/media/trip/market.jpg",
+      "/media/trip/harbour.jpg",
+      "/media/trip/sunset.jpg"
+    ],
+    "template": "travel_diary"
+  }
+}

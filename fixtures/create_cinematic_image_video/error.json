@@ -1,0 +1,31 @@
+{
+  "name": "error",
+  "description": "A render that failed — FFmpeg rejected the graph (here a transition longer than the per-image duration). The card surfaces the error tail with a retry path.",
+  "state": "error",
+  "input": {
+    "images": [
+      "/media/launch/hero.jpg",
+      "/media/launch/detail.jpg"
+    ],
+    "template": "product_launch",
+    "duration_per_image": 0.5,
+    "transition_seconds": 1.0
+  },
+  "output_override": {
+    "render": {
+      "output_path": "",
+      "job_id": "job-0e1d44a8",
+      "duration_sec": 0,
+      "width": 0,
+      "height": 0,
+      "size_bytes": 0,
+      "command": ""
+    },
+    "image_count": 2,
+    "per_image_seconds": 0.5,
+    "filter_complex": "",
+    "warnings": [
+      "transition (1.00s) must be shorter than per-image duration (0.50s)"
+    ]
+  }
+}
