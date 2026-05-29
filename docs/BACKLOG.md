@@ -44,8 +44,10 @@ don't get lost. Grouped by area; rough priority noted. Checked items are done.
 
 - [ ] **V3** — richer per-image motion presets (diagonal drift, true `parallax_like`;
       today parallax aliases ken_burns) + per-clip overrides in the contract.
-- [ ] **V4** — captions / lower-thirds via `drawtext` with safe escaping + a font
-      allowlist (contract already accepts `captions[]`; today echoed as warnings).
+- [x] **V4** — captions / lower-thirds. Implemented as pure-Go rendered overlay
+      PNGs composited via FFmpeg `overlay` (drawtext needs libfreetype, which the
+      common ffmpeg build lacks). Font from an allowlist. Verified burned-in
+      (top + lower-third) in a real render.
 - [ ] **V5** — audio: ducking, loudness normalize (`loudnorm`), `amix` when stills
       carry audio, beat-detection for `beat_sync` (contract field exists).
 - [ ] **V6** — cinematic templates ("wedding reel", "product launch", "memory

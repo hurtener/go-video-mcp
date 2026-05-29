@@ -113,8 +113,8 @@ The cinematic tool grows in layers:
 - ✅ V1 — crossfade / wipe / slide transitions
 - ✅ V2 — Ken Burns motion (zoompan) + pan presets
 - ✅ Frameline Studio — inline MCP App (upload, reorder, render, recipe)
+- ✅ V4 — captions / lower-thirds (pure-Go rendered overlays + font allowlist)
 - ⏳ V3 — richer per-image motion presets (diagonal drift, parallax)
-- ⏳ V4 — captions / lower-thirds (drawtext, with safe escaping + font allowlist)
 - ⏳ V5 — audio ducking + loudness normalisation
 - ⏳ V6 — cinematic templates ("wedding reel", "product launch", "memory montage")
 - ⏳ V7 — storyboard JSON + preview thumbnails before the full render
