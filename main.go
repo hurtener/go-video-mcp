@@ -105,19 +105,46 @@ func main() {
 
 // registerApp installs the embedded single-file Frameline Studio bundle as the
 // ui://go-video-mcp/frameline MCP App resource (inline, deny-by-default CSP).
-// create_cinematic_image_video declares .UI(appName) so its result renders in
-// this App in the host's chat surface.
+// The tools declare .UI(appName) so their results render in this App in the
+// host's chat surface.
+//
+// Domain + HostProfile "claude" make the resources/read response carry
+// _meta.ui.domain — the dedicated, signed <hash>.claudemcpcontent.com origin
+// Claude renders an App iframe from (RFC §7.5). Without it, Claude recognises
+// the tool's _meta.ui link but has no origin to load the iframe into, so the
+// App never paints (it falls back to text). The signed origin is derived from
+// the public server URL; GO_VIDEO_MCP_PUBLIC_URL overrides it for the bridged
+// HTTP setup.
 func registerApp(srv *server.Server) error {
 	html, err := fs.ReadFile(uiBundle, "web/dist/index.html")
 	if err != nil {
 		return err
 	}
+	prefersBorder := true
 	return apps.Register(srv, apps.App{
-		URI:   appURI,
-		Name:  appName,
-		Title: "Frameline Studio",
-		HTML:  html,
+		URI:           appURI,
+		Name:          appName,
+		Title:         "Frameline Studio",
+		HTML:          html,
+		Domain:        appName, // host-agnostic label → signed dedicated origin
+		HostProfile:   "claude",
+		ServerURL:     publicURL(),
+		PrefersBorder: &prefersBorder,
 	})
+}
+
+// publicURL is the externally-reachable MCP endpoint, used to derive the App's
+// signed Claude content origin. It is GO_VIDEO_MCP_PUBLIC_URL when set, else the
+// HTTP endpoint this server listens on (the address mcp-remote connects to).
+func publicURL() string {
+	if v := strings.TrimSpace(os.Getenv("GO_VIDEO_MCP_PUBLIC_URL")); v != "" {
+		return v
+	}
+	addr := httpAddr
+	if override := strings.TrimSpace(os.Getenv("DOCKYARD_HTTP_ADDR")); override != "" {
+		addr = override
+	}
+	return "http://" + addr + "/mcp"
 }
 
 // allowedRoots reads the filesystem confinement policy from GO_VIDEO_MCP_ROOTS
