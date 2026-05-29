@@ -6,8 +6,14 @@ version: 0.1.0
 
 runtime:
   # Deployment modes this server supports. stdio is the local single-user
-  # mode; add 'http' to also serve the streamable-HTTP transport.
-  transports: [stdio]
+  # mode; http also serves the streamable-HTTP transport (and the inspector's
+  # obs/v1 stream).
+  transports: [stdio, http]
+  ui:
+    framework: svelte
+    # Single-file bundle: the App ships zero external origins, so the
+    # deny-by-default CSP just works.
+    bundle: single-file
 
 tools:
   # input/output are Go type references — the contract-first source of truth
@@ -47,18 +53,28 @@ tools:
     description: Compile an image sequence into a cinematic slideshow video.
     input: internal/contracts.CreateCinematicImageVideoInput
     output: internal/contracts.CreateCinematicImageVideoOutput
+    ui: frameline
     task_support: forbidden
 
-# A no-template server ships no UI, so there is no apps[] block. Attach a
-# Svelte UI later with 'dockyard new --template' or by adding an apps[] entry.
+apps:
+  - id: frameline
+    uri: ui://go-video-mcp/frameline
+    entry: web/src/App.svelte
+    # Inline only for now (Dockyard V1). The App is built mode-aware so the
+    # fullscreen / PiP layouts can grow from the same component later.
+    display_modes: [inline]
+    csp:
+      # Single-file bundle, zero external origins — deny-by-default just works.
+      connect: []
+      resource: []
+    visibility: [model, app]
 
-quality:                  # RFC §9.4 — enforced by 'dockyard validate'.
-  # UI-state gates are off: this server has no UI to require states of.
-  require_loading_state: false
-  require_empty_state: false
-  require_error_state: false
+quality:                  # enforced by 'dockyard validate'.
+  # The Frameline App routes through loading / empty / error states.
+  require_loading_state: true
+  require_empty_state: true
+  require_error_state: true
   require_permission_state: false
-  # Contract hygiene gates stay on — they apply to every server.
   require_fixtures: true
   require_contract_tests: true
   require_spec_compliance: true

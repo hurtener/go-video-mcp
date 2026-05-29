@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hurtener/dockyard/runtime/tool"
 
@@ -40,7 +41,16 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		}
 		images = append(images, v)
 	}
-	output, err := h.K.ValidatePath(in.OutputPath, kernel.ModeWrite)
+	// Output path is optional: default a uniquely-named reel into the work dir
+	// so a UI caller need not know server paths.
+	outPath := strings.TrimSpace(in.OutputPath)
+	if outPath == "" {
+		if h.WorkDir == "" {
+			return fail(fmt.Errorf("output_path is empty and no work directory is configured"))
+		}
+		outPath = uniquePath(h.WorkDir, "reel.mp4")
+	}
+	output, err := h.K.ValidatePath(outPath, kernel.ModeWrite)
 	if err != nil {
 		return fail(err)
 	}

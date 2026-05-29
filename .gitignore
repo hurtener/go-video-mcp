@@ -12,8 +12,11 @@ go.work.sum
 
 # Frontend (MCP App)
 web/node_modules/
-web/dist/
 node_modules/
+# web/dist is a Vite build artifact, but keep .gitkeep so //go:embed all:web/dist
+# compiles on a fresh clone (before `dockyard build` runs Vite).
+web/dist/*
+!web/dist/.gitkeep
 
 # Generated media / scratch output from local runs
 /output/

@@ -86,8 +86,7 @@
     }
   },
   "required": [
-    "images",
-    "output_path"
+    "images"
   ],
   "additionalProperties": false
 }

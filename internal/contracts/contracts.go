@@ -224,8 +224,10 @@ type Caption struct {
 type CreateCinematicImageVideoInput struct {
 	// Images are the ordered source image paths. At least one is required.
 	Images []string `json:"images"`
-	// OutputPath is the destination video (".mp4" recommended). Required.
-	OutputPath string `json:"output_path"`
+	// OutputPath is the destination video (".mp4" recommended). Optional: when
+	// empty, the server writes a uniquely-named reel into its work directory
+	// and returns the path (so a UI need not know server paths).
+	OutputPath string `json:"output_path,omitempty"`
 	// Canvas is the output frame size: "1920x1080" (landscape), "1080x1920"
 	// (portrait/reel), or a custom "WxH". Defaults to "1920x1080".
 	Canvas string `json:"canvas,omitempty"`

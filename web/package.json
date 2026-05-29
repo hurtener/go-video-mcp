@@ -1,0 +1,24 @@
+{
+  "name": "go-video-mcp-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@dockyard/bridge": "file:../../dockyard/web/bridge",
+    "@dockyard/ui": "file:../../dockyard/web/ui",
+    "svelte-dnd-action": "^0.9.61",
+    "wavesurfer.js": "^7.8.6"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "svelte": "^5.19.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11",
+    "vite-plugin-singlefile": "^2.1.0"
+  }
+}

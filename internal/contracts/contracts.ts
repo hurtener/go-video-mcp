@@ -344,9 +344,11 @@ export interface CreateCinematicImageVideoInput {
    */
   images: string[];
   /**
-   * OutputPath is the destination video (".mp4" recommended). Required.
+   * OutputPath is the destination video (".mp4" recommended). Optional: when
+   * empty, the server writes a uniquely-named reel into its work directory
+   * and returns the path (so a UI need not know server paths).
    */
-  output_path: string;
+  output_path?: string;
   /**
    * Canvas is the output frame size: "1920x1080" (landscape), "1080x1920"
    * (portrait/reel), or a custom "WxH". Defaults to "1920x1080".

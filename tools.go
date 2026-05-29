@@ -56,6 +56,7 @@ func registerTools(srv *server.Server, h *handlers.Handlers) error {
 
 	if err := tool.New[contracts.CreateCinematicImageVideoInput, contracts.CreateCinematicImageVideoOutput]("create_cinematic_image_video").
 		Describe("Compile a sequence of images into a cinematic slideshow video: canvas preset, per-image Ken Burns motion, crossfade/wipe/slide transitions, a colour grade, and an optional faded music bed — all in one render. Returns the produced file and the compiled FFmpeg filtergraph.").
+		UI(appName).
 		Handler(h.CreateCinematicImageVideo).
 		Register(srv); err != nil {
 		return err
