@@ -7,7 +7,7 @@
  * so Frameline looks right whether or not the host supplies variables.
  */
 
-import type { StyleVariables } from '@dockyard/bridge';
+import type { StyleVariables } from 'dockyard-bridge';
 
 /** Applies the host's style variables to the App root as CSS custom properties. */
 export function applyHostVariables(

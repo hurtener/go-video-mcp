@@ -3,7 +3,7 @@ module github.com/hurtener/go-video-mcp
 go 1.26.2
 
 require (
-	github.com/hurtener/dockyard v1.2.0
+	github.com/hurtener/dockyard v1.5.0
 	golang.org/x/image v0.41.0
 )
 

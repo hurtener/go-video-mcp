@@ -9,8 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dockyard/bridge": "file:../../dockyard/web/bridge",
-    "@dockyard/ui": "file:../../dockyard/web/ui",
+    "dockyard-bridge": "^1.5.0",
+    "dockyard-ui": "^1.5.0",
     "svelte-dnd-action": "^0.9.61",
     "wavesurfer.js": "^7.8.6"
   },

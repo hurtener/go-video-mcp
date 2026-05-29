@@ -12,7 +12,7 @@
 -->
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { createBridge, type StyleVariables, type DisplayMode } from '@dockyard/bridge';
+  import { createBridge, type StyleVariables, type DisplayMode } from 'dockyard-bridge';
 
   import Icon from './components/Icon.svelte';
   import Chip from './components/Chip.svelte';
