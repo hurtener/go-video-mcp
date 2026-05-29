@@ -14,6 +14,16 @@ don't get lost. Grouped by area; rough priority noted. Checked items are done.
 - [x] Verified end-to-end render through the inspector host (real ffmpeg)
 - [x] read_media tool + in-iframe reel playback (verified: data: video decodes
       under the sandboxed deny-by-default CSP in the inspector host)
+- [x] **V4 captions** — pure-Go rendered overlay PNGs composited via FFmpeg
+      `overlay` (drawtext/libfreetype absent in the common build); font allowlist;
+      captions editor in the card; verified burned-in (top + lower-third)
+
+## Planned order
+
+Next up: **V6 → V5 → V3** (templates, then audio, then per-clip motion).
+After those, rough priority: **V7** (storyboard + low-bitrate preview) →
+**watermark + safe_area** (reuse the V4 overlay machinery) → **fullscreen + PiP**
+UI → polish (no-host state, thumbnails) → more tools → infra/CI.
 
 ## Frameline Studio (the MCP App)
 
@@ -61,8 +71,6 @@ don't get lost. Grouped by area; rough priority noted. Checked items are done.
 
 ## Tools / kernel
 
-- [ ] `read_media` — read a media file under the roots as a (capped) data URI —
-      *in progress, for in-iframe playback*.
 - [ ] `create_slideshow` + `create_video_from_images` — thinner cousins over the
       compiler (reduced specs).
 - [ ] `apply_video_effect` — bounded, named effect set (NOT arbitrary filters).
