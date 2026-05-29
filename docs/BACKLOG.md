@@ -12,10 +12,14 @@ don't get lost. Grouped by area; rough priority noted. Checked items are done.
 - [x] list_media + ingest_media (browse roots / base64 upload)
 - [x] Frameline Studio inline composer card (Svelte MCP App), embedded + served
 - [x] Verified end-to-end render through the inspector host (real ffmpeg)
+- [x] read_media tool + in-iframe reel playback (verified: data: video decodes
+      under the sandboxed deny-by-default CSP in the inspector host)
 
 ## Frameline Studio (the MCP App)
 
-- [ ] **In-iframe video playback** of the rendered reel (CSP/bytes story) — *in progress*
+- [ ] Confirm in-iframe playback under a **real host** (Claude Desktop) — the
+      inspector permits data:/blob: media; production host CSPs may be stricter
+      (fallback: a low-bitrate preview transport / MCP resource).
 - [ ] Graceful **no-host state** — when opened standalone (no MCP host), show a
       clear "waiting for host" message and a short handshake timeout instead of a
       blank stage for 30s.
