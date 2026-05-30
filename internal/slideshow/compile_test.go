@@ -395,6 +395,70 @@ func TestCompile_PerClipTransition(t *testing.T) {
 }
 
 // Codec selects the output encoder; h264 is the default, av1/hevc are opt-in.
+// Fit=contain letterboxes (scale-to-fit + black pad), no crop, static.
+func TestCompile_FitContain(t *testing.T) {
+	plan, err := Compile(Spec{
+		Images: []string{"a.jpg"}, Width: 1920, Height: 1080, FPS: 30,
+		SecondsPerImage: 4, Transition: TransitionNone, Motion: MotionKenBurns,
+		Fit: FitContain, Output: "o.mp4",
+	})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	g := plan.Graph.String()
+	want := "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black,fps=30,setsar=1,format=yuv420p[v0]"
+	if !strings.Contains(g, want) {
+		t.Errorf("contain: expected letterbox chain\n want: %s\n got: %s", want, g)
+	}
+	// Motion is ignored for contain — no zoompan.
+	if strings.Contains(g, "zoompan") {
+		t.Errorf("contain should be static (no zoompan):\n%s", g)
+	}
+}
+
+// Fit=blur splits into a blurred cover background + a fitted foreground overlay.
+func TestCompile_FitBlur(t *testing.T) {
+	plan, err := Compile(Spec{
+		Images: []string{"a.jpg"}, Width: 1920, Height: 1080, FPS: 30,
+		SecondsPerImage: 4, Transition: TransitionNone, Motion: MotionNone,
+		Fit: FitBlur, Output: "o.mp4",
+	})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	g := plan.Graph.String()
+	for _, want := range []string{
+		"[0:v]split=2[bg0][fg0]",
+		"boxblur=20:1",
+		"force_original_aspect_ratio=decrease,fps=30[fg0]",
+		"[bgo0][fgo0]overlay=(W-w)/2:(H-h)/2,setsar=1,format=yuv420p[v0]",
+	} {
+		if !strings.Contains(g, want) {
+			t.Errorf("blur: missing %q in:\n%s", want, g)
+		}
+	}
+}
+
+// Per-clip fit lets a portrait use blur while the rest stay cover.
+func TestCompile_PerClipFit(t *testing.T) {
+	plan, err := Compile(Spec{
+		Images: []string{"a.jpg", "b.jpg"}, Width: 1920, Height: 1080, FPS: 30,
+		SecondsPerImage: 4, Transition: TransitionNone, Motion: MotionNone,
+		Fit: FitCover, ClipFits: []Fit{"", FitContain}, Output: "o.mp4",
+	})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	g := plan.Graph.String()
+	// Image 0 = cover (crop), image 1 = contain (pad).
+	if !strings.Contains(g, "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080") {
+		t.Errorf("clip 0 should be cover:\n%s", g)
+	}
+	if !strings.Contains(g, "[1:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=") {
+		t.Errorf("clip 1 should be contain:\n%s", g)
+	}
+}
+
 func TestCompile_Codec(t *testing.T) {
 	base := Spec{
 		Images: []string{"a.jpg"}, Width: 1920, Height: 1080, FPS: 30,
@@ -404,8 +468,8 @@ func TestCompile_Codec(t *testing.T) {
 		codec Codec
 		want  string // a distinctive substring of the expected encode args
 	}{
-		{"", "-c:v libx264 -preset veryfast -crf 20"},          // default
-		{CodecH264, "-c:v libx264 -preset veryfast -crf 20"},   // explicit
+		{"", "-c:v libx264 -preset veryfast -crf 20"},        // default
+		{CodecH264, "-c:v libx264 -preset veryfast -crf 20"}, // explicit
 		{CodecHEVC, "-c:v libx265 -preset medium -crf 24 -tag:v hvc1"},
 		{CodecAV1, "-c:v libsvtav1 -preset 8 -crf 30"},
 	}

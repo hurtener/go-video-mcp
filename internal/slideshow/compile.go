@@ -38,6 +38,12 @@ type Spec struct {
 	// ClipMotions, when non-empty, overrides Motion per image by index. An empty
 	// entry (or a slice shorter than Images) falls back to Motion. (V3)
 	ClipMotions []MotionStyle
+	// Fit selects how each image is placed on the canvas (cover / contain /
+	// blur). Empty defaults to cover.
+	Fit Fit
+	// ClipFits, when non-empty, overrides Fit per image by index. An empty entry
+	// (or a short slice) falls back to Fit.
+	ClipFits []Fit
 	// ClipDurations, when non-empty, overrides SecondsPerImage per image by
 	// index. A zero entry (or a short slice) falls back to SecondsPerImage. (V3)
 	ClipDurations []float64
@@ -112,6 +118,7 @@ func Compile(s Spec) (kernel.Plan, error) {
 	// merge below uses cumulative offsets rather than a single uniform stride.
 	durs := make([]float64, n)
 	motions := make([]MotionStyle, n)
+	fits := make([]Fit, n)
 	for i := 0; i < n; i++ {
 		d := s.SecondsPerImage
 		if i < len(s.ClipDurations) && s.ClipDurations[i] > 0 {
@@ -126,6 +133,14 @@ func Compile(s Spec) (kernel.Plan, error) {
 			m = s.ClipMotions[i]
 		}
 		motions[i] = m
+		f := s.Fit
+		if f == "" {
+			f = FitCover
+		}
+		if i < len(s.ClipFits) && s.ClipFits[i] != "" {
+			f = s.ClipFits[i]
+		}
+		fits[i] = f
 	}
 	if blended {
 		for i, d := range durs {
@@ -143,13 +158,12 @@ func Compile(s Spec) (kernel.Plan, error) {
 		plan.Inputs = append(plan.Inputs, kernel.Input{Path: img, Loop: true, Duration: durs[i]})
 	}
 
-	// Per-image motion/preprocessing chains: [i:v] … [v{i}].
+	// Per-image preprocessing chains: [i:v] … [v{i}], honouring the fit mode
+	// (cover applies motion; contain/blur are static framings).
 	for i := range s.Images {
-		graph.Add(kernel.FilterChain{
-			Inputs:  []string{fmt.Sprintf("%d:v", i)},
-			Filters: segmentFilters(motions[i], s.Width, s.Height, s.FPS, durs[i]),
-			Outputs: []string{fmt.Sprintf("v%d", i)},
-		})
+		for _, c := range segmentChains(i, motions[i], fits[i], s.Width, s.Height, s.FPS, durs[i]) {
+			graph.Add(c)
+		}
 	}
 
 	total := totalDuration(durs, trans, blended)

@@ -26,6 +26,23 @@ const (
 	MotionDiagonal MotionStyle = "diagonal_drift" // zoom + drift across both axes
 )
 
+// Fit selects how an image is placed onto the canvas when its aspect ratio
+// differs from the canvas (e.g. a portrait photo in a landscape reel).
+type Fit string
+
+const (
+	// FitCover scales to fill the canvas and crops the overflow (default). The
+	// camera-motion family (Ken Burns / pan) operates on the cover frame.
+	FitCover Fit = "cover"
+	// FitContain scales the whole image to fit inside the canvas and pads the
+	// remainder with black bars (letterbox / pillarbox) — nothing is cropped.
+	// Rendered as a static frame (motion applies to cover only).
+	FitContain Fit = "contain"
+	// FitBlur shows the whole image (fit inside) over a blurred, zoomed copy of
+	// itself filling the bars — the "blurred background" look. Static frame.
+	FitBlur Fit = "blur"
+)
+
 // Codec selects the output video codec. The CRFs below are matched so all
 // three look the same; they differ in size and playback support.
 type Codec string

@@ -40,6 +40,9 @@
     "codec": {
       "type": "string"
     },
+    "fit": {
+      "type": "string"
+    },
     "clips": {
       "type": [
         "null",
@@ -56,6 +59,9 @@
           },
           "duration_seconds": {
             "type": "number"
+          },
+          "fit": {
+            "type": "string"
           }
         },
         "additionalProperties": false

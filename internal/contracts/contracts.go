@@ -278,6 +278,17 @@ type MotionStyle string
 // Allowed: "neutral", "warm", "cinematic", "vintage", "high_contrast".
 type ColorGrade string
 
+// Fit selects how an image is placed on the canvas when its aspect ratio
+// differs from the canvas (the portrait-photo-in-a-landscape-reel problem).
+// Allowed: "cover" (default — scale to fill and crop the overflow; the camera
+// motion applies; good for landscape shots but crops portraits), "contain"
+// (scale the whole image to fit and pad with black bars — letterbox/pillarbox;
+// nothing is cropped; static frame), "blur" (show the whole image over a
+// blurred, zoomed copy of itself filling the bars — the "blurred background"
+// look; static frame). Set it per image with Clips to mix landscape (cover +
+// motion) and portrait (blur/contain) shots in one reel.
+type Fit string
+
 // Codec selects the reel's output video codec. The quality is the same across
 // all three (matched CRF); they differ in file size and where they play back.
 // Allowed: "h264" (default — H.264/AVC; plays on every device, browser, TV, and
@@ -328,6 +339,10 @@ type PerClip struct {
 	// DurationSeconds overrides this image's on-screen seconds. Zero inherits the
 	// resolved global per-image duration.
 	DurationSeconds float64 `json:"duration_seconds,omitempty"`
+	// Fit overrides how this image is placed on the canvas (cover / contain /
+	// blur). Empty inherits the global Fit. Use "contain" or "blur" on a
+	// portrait shot so it isn't cropped in a landscape reel. See Fit.
+	Fit Fit `json:"fit,omitempty"`
 }
 
 // CreateCinematicImageVideoInput is the input for the flagship tool: it compiles
@@ -366,6 +381,11 @@ type CreateCinematicImageVideoInput struct {
 	// everywhere — best for a reel you share). "av1"/"hevc" roughly halve the
 	// file at the same quality but need modern players. See Codec.
 	Codec Codec `json:"codec,omitempty"`
+	// Fit selects how images that don't match the canvas aspect ratio are
+	// placed: "cover" (default, crop to fill), "contain" (black bars, no crop),
+	// or "blur" (blurred-background fill, no crop). Override per image with
+	// Clips. See Fit.
+	Fit Fit `json:"fit,omitempty"`
 	// Clips optionally overrides motion / transition / duration per image,
 	// indexed to Images (sparse; may be shorter than Images). The global fields
 	// remain the defaults for any image or field left unset.

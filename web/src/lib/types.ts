@@ -4,9 +4,19 @@
 
 export const CANVAS_PRESETS = [
   { value: '1920x1080', label: '16:9 Landscape' },
+  { value: '1920x1280', label: '3:2 (1920×1280)' },
   { value: '1080x1920', label: '9:16 Reel' },
   { value: '1080x1080', label: '1:1 Square' },
 ] as const;
+
+// How an off-ratio image is placed on the canvas (e.g. a portrait in a
+// landscape reel). cover crops; contain adds bars; blur fills with a blurred bg.
+export const FIT_OPTIONS = [
+  { value: 'cover', label: 'Crop to fill' },
+  { value: 'contain', label: 'Fit + bars' },
+  { value: 'blur', label: 'Fit + blur bg' },
+] as const;
+export const CLIP_FIT_OPTIONS = [{ value: '', label: 'Inherit' }, ...FIT_OPTIONS] as const;
 
 export const MOTION_OPTIONS = [
   { value: 'ken_burns', label: 'Ken Burns' },
@@ -124,6 +134,7 @@ export interface Clip {
   motion?: string;
   transition?: string;
   duration?: number;
+  fit?: string;
 }
 
 // Per-clip override option lists prepend an "Inherit" choice (empty value).
@@ -168,6 +179,7 @@ export interface CinematicInput {
   transition_seconds?: number;
   motion_style?: string;
   codec?: string;
+  fit?: string;
   color_grade?: string;
   background_audio?: string;
   audio_fade_in_seconds?: number;

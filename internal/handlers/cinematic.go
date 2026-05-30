@@ -92,7 +92,7 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 	// V3 per-clip overrides: split the sparse Clips slice into the parallel
 	// override slices the compiler consumes. Empty/zero entries fall back to the
 	// global settings inside the compiler, so we pass them through verbatim.
-	clipMotions, clipDurations, clipTransitions := splitClips(in.Clips)
+	clipMotions, clipDurations, clipTransitions, clipFits := splitClips(in.Clips)
 
 	// Captions (V4): rasterise each to a full-canvas overlay PNG (pure Go) and
 	// hand the compiler the paths + time windows. captionWarn surfaces any
@@ -112,7 +112,9 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		TransitionSeconds:   transSecs,
 		Motion:              slideshow.MotionStyle(motion),
 		Codec:               slideshow.Codec(in.Codec),
+		Fit:                 slideshow.Fit(in.Fit),
 		ClipMotions:         clipMotions,
+		ClipFits:            clipFits,
 		ClipDurations:       clipDurations,
 		ClipTransitions:     clipTransitions,
 		Grade:               slideshow.ColorGrade(grade),
@@ -288,15 +290,16 @@ func plannedWarnings(in contracts.CreateCinematicImageVideoInput) []string {
 // the compiler consumes (motions, durations, transitions). Each is allocated
 // only when at least one entry sets that field, so an all-empty Clips slice
 // leaves every override nil and the render is identical to the global path.
-func splitClips(clips []contracts.PerClip) (motions []slideshow.MotionStyle, durations []float64, transitions []slideshow.TransitionStyle) {
+func splitClips(clips []contracts.PerClip) (motions []slideshow.MotionStyle, durations []float64, transitions []slideshow.TransitionStyle, fits []slideshow.Fit) {
 	if len(clips) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
-	var anyMotion, anyDur, anyTrans bool
+	var anyMotion, anyDur, anyTrans, anyFit bool
 	for _, c := range clips {
 		anyMotion = anyMotion || c.Motion != ""
 		anyDur = anyDur || c.DurationSeconds > 0
 		anyTrans = anyTrans || c.Transition != ""
+		anyFit = anyFit || c.Fit != ""
 	}
 	if anyMotion {
 		motions = make([]slideshow.MotionStyle, len(clips))
@@ -306,6 +309,9 @@ func splitClips(clips []contracts.PerClip) (motions []slideshow.MotionStyle, dur
 	}
 	if anyTrans {
 		transitions = make([]slideshow.TransitionStyle, len(clips))
+	}
+	if anyFit {
+		fits = make([]slideshow.Fit, len(clips))
 	}
 	for i, c := range clips {
 		if anyMotion {
@@ -317,8 +323,11 @@ func splitClips(clips []contracts.PerClip) (motions []slideshow.MotionStyle, dur
 		if anyTrans {
 			transitions[i] = slideshow.TransitionStyle(c.Transition)
 		}
+		if anyFit {
+			fits[i] = slideshow.Fit(c.Fit)
+		}
 	}
-	return motions, durations, transitions
+	return motions, durations, transitions, fits
 }
 
 // hasClipTransition reports whether any per-clip entry sets a transition.

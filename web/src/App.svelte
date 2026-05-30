@@ -30,6 +30,7 @@
     TRANSITION_OPTIONS,
     GRADE_OPTIONS,
     CODEC_OPTIONS,
+    FIT_OPTIONS,
     TEMPLATES,
     nextId,
     fileToBase64,
@@ -61,6 +62,7 @@
   let transition = $state('fade');
   let grade = $state('neutral');
   let codec = $state('h264');
+  let fit = $state('cover');
   // advanced
   let secondsPerImage = $state(4);
   let transitionSeconds = $state(1);
@@ -119,6 +121,7 @@
     if (input.transition_style) transition = input.transition_style;
     if (input.color_grade) grade = input.color_grade;
     if (input.codec) codec = input.codec;
+    if (input.fit) fit = input.fit;
     if (input.transition_seconds) transitionSeconds = input.transition_seconds;
     if (input.duration_per_image) secondsPerImage = input.duration_per_image;
     if (typeof input.normalize_audio === 'boolean') normalizeAudio = input.normalize_audio;
@@ -141,6 +144,7 @@
         status: 'ready' as const,
         motion: input.clips?.[i]?.motion,
         transition: input.clips?.[i]?.transition,
+        fit: input.clips?.[i]?.fit,
         duration: input.clips?.[i]?.duration_seconds,
       }));
     }
@@ -432,6 +436,7 @@
       duration_per_image: secondsPerImage,
       transition_seconds: transitionSeconds,
       ...(codec && codec !== 'h264' ? { codec } : {}),
+      ...(fit && fit !== 'cover' ? { fit } : {}),
     };
     if (audio?.path) {
       args.background_audio = audio.path;
@@ -449,10 +454,11 @@
     if (caps.length) args.captions = caps;
     // V3 per-clip overrides — aligned to the rendered images by index. Only sent
     // when at least one clip carries an override (else the globals apply).
-    if (readyClips.some((c) => c.motion || c.transition || (c.duration && c.duration > 0))) {
+    if (readyClips.some((c) => c.motion || c.transition || c.fit || (c.duration && c.duration > 0))) {
       args.clips = readyClips.map((c) => ({
         ...(c.motion ? { motion: c.motion } : {}),
         ...(c.transition ? { transition: c.transition } : {}),
+        ...(c.fit ? { fit: c.fit } : {}),
         ...(c.duration && c.duration > 0 ? { duration_seconds: c.duration } : {}),
       }));
     }
@@ -569,6 +575,7 @@
     <Chip icon="motion" label="Motion" bind:value={motion} options={MOTION_OPTIONS} />
     <Chip icon="sun" label="Look" bind:value={grade} options={GRADE_OPTIONS} />
     <Chip icon="film" label="Transition" bind:value={transition} options={TRANSITION_OPTIONS} />
+    <Chip icon="image" label="Fit" bind:value={fit} options={FIT_OPTIONS} />
   </div>
 
   <AudioStrip

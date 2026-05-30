@@ -5,7 +5,7 @@
   import { dndzone, type DndEvent } from 'svelte-dnd-action';
   import { flip } from 'svelte/animate';
   import Icon from './Icon.svelte';
-  import { CLIP_MOTION_OPTIONS, CLIP_TRANSITION_OPTIONS, type Clip } from '../lib/types.js';
+  import { CLIP_MOTION_OPTIONS, CLIP_TRANSITION_OPTIONS, CLIP_FIT_OPTIONS, type Clip } from '../lib/types.js';
 
   interface Props {
     clips: Clip[];
@@ -24,13 +24,13 @@
   const isLast = $derived(editingIndex === clips.length - 1);
 
   function hasOverride(c: Clip): boolean {
-    return !!(c.motion || c.transition || (c.duration && c.duration > 0));
+    return !!(c.motion || c.transition || c.fit || (c.duration && c.duration > 0));
   }
   function toggleEdit(id: string) {
     editingId = editingId === id ? null : id;
   }
   function clearOverrides(id: string) {
-    onUpdate(id, { motion: '', transition: '', duration: undefined });
+    onUpdate(id, { motion: '', transition: '', fit: '', duration: undefined });
   }
 
   function consider(e: CustomEvent<DndEvent<Clip>>) {
@@ -112,6 +112,12 @@
           Motion
           <select value={editing.motion ?? ''} onchange={(e) => onUpdate(editing!.id, { motion: (e.currentTarget as HTMLSelectElement).value })}>
             {#each CLIP_MOTION_OPTIONS as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+          </select>
+        </label>
+        <label>
+          Fit
+          <select value={editing.fit ?? ''} onchange={(e) => onUpdate(editing!.id, { fit: (e.currentTarget as HTMLSelectElement).value })}>
+            {#each CLIP_FIT_OPTIONS as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
           </select>
         </label>
         <label class:dim={isLast}>
