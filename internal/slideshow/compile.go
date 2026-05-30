@@ -48,6 +48,8 @@ type Spec struct {
 	ClipTransitions []TransitionStyle
 	// Grade selects the final colour look.
 	Grade ColorGrade
+	// Codec selects the output video codec (default h264 when empty).
+	Codec Codec
 	// AudioPath, when non-empty, is an already-validated background audio file.
 	AudioPath string
 	// AudioFadeInSeconds / AudioFadeOutSeconds add fades to the audio bed.
@@ -196,14 +198,7 @@ func Compile(s Spec) (kernel.Plan, error) {
 	})
 
 	plan.Maps = []string{"[vout]"}
-	plan.Out = []string{
-		"-c:v", "libx264",
-		"-preset", "medium",
-		"-crf", "20",
-		"-pix_fmt", "yuv420p",
-		"-r", fmt.Sprintf("%d", s.FPS),
-		"-movflags", "+faststart",
-	}
+	plan.Out = append(videoEncodeArgs(s.Codec, s.FPS), "-movflags", "+faststart")
 	if hasAudio {
 		plan.Maps = append(plan.Maps, "[aout]")
 		plan.Out = append(plan.Out, "-c:a", "aac", "-b:a", "192k", "-shortest")
@@ -211,6 +206,25 @@ func Compile(s Spec) (kernel.Plan, error) {
 
 	plan.Graph = graph
 	return plan, nil
+}
+
+// videoEncodeArgs returns the codec-specific `-c:v …` output flags. The preset
+// only affects encode speed/size, never visual quality at a given CRF; the CRFs
+// are matched (h264 20 ≈ hevc 24 ≈ av1 30) so the three look the same and only
+// differ in size + playback support. `veryfast`/SVT preset 8 keep the encode
+// quick — the zoompan+xfade filtergraph, not the encoder, dominates render time.
+// An empty/unknown codec falls back to h264 (the universally-playable default).
+func videoEncodeArgs(codec Codec, fps int) []string {
+	r := fmt.Sprintf("%d", fps)
+	switch codec {
+	case CodecHEVC:
+		// -tag:v hvc1 makes the HEVC stream playable in QuickTime/Safari.
+		return []string{"-c:v", "libx265", "-preset", "medium", "-crf", "24", "-tag:v", "hvc1", "-pix_fmt", "yuv420p", "-r", r}
+	case CodecAV1:
+		return []string{"-c:v", "libsvtav1", "-preset", "8", "-crf", "30", "-pix_fmt", "yuv420p", "-r", r}
+	default: // CodecH264 / "" / unknown
+		return []string{"-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-r", r}
+	}
 }
 
 // mergeSegments joins v0..v{n-1} into one stream and returns its pad label.

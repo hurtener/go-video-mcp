@@ -278,6 +278,17 @@ type MotionStyle string
 // Allowed: "neutral", "warm", "cinematic", "vintage", "high_contrast".
 type ColorGrade string
 
+// Codec selects the reel's output video codec. The quality is the same across
+// all three (matched CRF); they differ in file size and where they play back.
+// Allowed: "h264" (default — H.264/AVC; plays on every device, browser, TV, and
+// messaging app — the safe choice for a reel you share; largest files),
+// "hevc" (H.265; ~half the size, Apple-friendly but spotty elsewhere),
+// "av1" (~half the size at the same quality, but only plays on recent
+// browsers/devices — Chromium yes, Safari needs an M3/A17+ chip; risky to share
+// to older phones/TVs). Use h264 to share widely; av1/hevc for smaller files
+// when you control the playback target.
+type Codec string
+
 // Template names a cinematic preset — a curated bundle of canvas, motion,
 // transition, colour grade, and timing that yields a polished reel in one shot.
 // The template only fills fields the caller leaves unset; any explicit field
@@ -351,6 +362,10 @@ type CreateCinematicImageVideoInput struct {
 	// MotionStyle selects the default per-image camera motion. Defaults to
 	// "ken_burns". Override individual images with Clips.
 	MotionStyle MotionStyle `json:"motion_style,omitempty"`
+	// Codec selects the output video codec. Defaults to "h264" (plays
+	// everywhere — best for a reel you share). "av1"/"hevc" roughly halve the
+	// file at the same quality but need modern players. See Codec.
+	Codec Codec `json:"codec,omitempty"`
 	// Clips optionally overrides motion / transition / duration per image,
 	// indexed to Images (sparse; may be shorter than Images). The global fields
 	// remain the defaults for any image or field left unset.

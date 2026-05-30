@@ -37,6 +37,9 @@
     "motion_style": {
       "type": "string"
     },
+    "codec": {
+      "type": "string"
+    },
     "clips": {
       "type": [
         "null",

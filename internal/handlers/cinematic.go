@@ -111,6 +111,7 @@ func (h *Handlers) CreateCinematicImageVideo(ctx context.Context, in contracts.C
 		Transition:          slideshow.TransitionStyle(transition),
 		TransitionSeconds:   transSecs,
 		Motion:              slideshow.MotionStyle(motion),
+		Codec:               slideshow.Codec(in.Codec),
 		ClipMotions:         clipMotions,
 		ClipDurations:       clipDurations,
 		ClipTransitions:     clipTransitions,

@@ -83,6 +83,14 @@ export const TEMPLATES: ReadonlyArray<{
   },
 ] as const;
 
+// Output codec. h264 plays everywhere (default — best for sharing); av1/hevc are
+// ~half the size at the same quality but need modern players.
+export const CODEC_OPTIONS = [
+  { value: 'h264', label: 'H.264 · plays everywhere' },
+  { value: 'av1', label: 'AV1 · ~half size, modern only' },
+  { value: 'hevc', label: 'HEVC · ~half size, Apple' },
+] as const;
+
 export const CAPTION_POSITIONS = [
   { value: 'lower_third', label: 'Lower third' },
   { value: 'top', label: 'Top' },
@@ -159,6 +167,7 @@ export interface CinematicInput {
   transition_style?: string;
   transition_seconds?: number;
   motion_style?: string;
+  codec?: string;
   color_grade?: string;
   background_audio?: string;
   audio_fade_in_seconds?: number;

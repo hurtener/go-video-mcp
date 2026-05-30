@@ -394,6 +394,38 @@ func TestCompile_PerClipTransition(t *testing.T) {
 	}
 }
 
+// Codec selects the output encoder; h264 is the default, av1/hevc are opt-in.
+func TestCompile_Codec(t *testing.T) {
+	base := Spec{
+		Images: []string{"a.jpg"}, Width: 1920, Height: 1080, FPS: 30,
+		SecondsPerImage: 4, Transition: TransitionNone, Motion: MotionNone, Output: "o.mp4",
+	}
+	cases := []struct {
+		codec Codec
+		want  string // a distinctive substring of the expected encode args
+	}{
+		{"", "-c:v libx264 -preset veryfast -crf 20"},          // default
+		{CodecH264, "-c:v libx264 -preset veryfast -crf 20"},   // explicit
+		{CodecHEVC, "-c:v libx265 -preset medium -crf 24 -tag:v hvc1"},
+		{CodecAV1, "-c:v libsvtav1 -preset 8 -crf 30"},
+	}
+	for _, tc := range cases {
+		spec := base
+		spec.Codec = tc.codec
+		plan, err := Compile(spec)
+		if err != nil {
+			t.Fatalf("Compile(%q): %v", tc.codec, err)
+		}
+		args := strings.Join(plan.ToArgs(), " ")
+		if !strings.Contains(args, tc.want) {
+			t.Errorf("codec %q: missing %q in:\n%s", tc.codec, tc.want, args)
+		}
+		if !strings.Contains(args, "-movflags +faststart") {
+			t.Errorf("codec %q: expected +faststart", tc.codec)
+		}
+	}
+}
+
 func TestCompile_Errors(t *testing.T) {
 	if _, err := Compile(Spec{Width: 1920, Height: 1080, FPS: 30, SecondsPerImage: 4}); err == nil {
 		t.Error("expected error for no images")

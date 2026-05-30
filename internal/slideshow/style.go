@@ -26,6 +26,16 @@ const (
 	MotionDiagonal MotionStyle = "diagonal_drift" // zoom + drift across both axes
 )
 
+// Codec selects the output video codec. The CRFs below are matched so all
+// three look the same; they differ in size and playback support.
+type Codec string
+
+const (
+	CodecH264 Codec = "h264" // libx264 — universal playback, larger files (default)
+	CodecHEVC Codec = "hevc" // libx265 — ~half size, Apple-friendly
+	CodecAV1  Codec = "av1"  // libsvtav1 — ~half size, modern players only
+)
+
 // ColorGrade selects a final look applied to the whole reel.
 type ColorGrade string
 

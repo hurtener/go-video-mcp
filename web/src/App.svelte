@@ -29,6 +29,7 @@
     MOTION_OPTIONS,
     TRANSITION_OPTIONS,
     GRADE_OPTIONS,
+    CODEC_OPTIONS,
     TEMPLATES,
     nextId,
     fileToBase64,
@@ -59,6 +60,7 @@
   let motion = $state('ken_burns');
   let transition = $state('fade');
   let grade = $state('neutral');
+  let codec = $state('h264');
   // advanced
   let secondsPerImage = $state(4);
   let transitionSeconds = $state(1);
@@ -99,7 +101,10 @@
   const connecting = $derived(!connected && !connectError);
   const isEmpty = $derived(clips.length === 0 && !result && !rendering);
 
-  const bridge = createBridge({ displayModes: ['inline'] });
+  // requestTimeoutMs defaults to 30s in dockyard-bridge — far too short for a
+  // real render (15 images with motion + transitions easily exceeds it, even
+  // though the server completes and writes the file). Give render calls room.
+  const bridge = createBridge({ displayModes: ['inline'], requestTimeoutMs: 600_000 });
 
   // The model may invoke create_cinematic_image_video directly; reflect its
   // input in the card so the human sees what the agent set.
@@ -113,6 +118,7 @@
     if (input.motion_style) motion = input.motion_style;
     if (input.transition_style) transition = input.transition_style;
     if (input.color_grade) grade = input.color_grade;
+    if (input.codec) codec = input.codec;
     if (input.transition_seconds) transitionSeconds = input.transition_seconds;
     if (input.duration_per_image) secondsPerImage = input.duration_per_image;
     if (typeof input.normalize_audio === 'boolean') normalizeAudio = input.normalize_audio;
@@ -425,6 +431,7 @@
       color_grade: grade,
       duration_per_image: secondsPerImage,
       transition_seconds: transitionSeconds,
+      ...(codec && codec !== 'h264' ? { codec } : {}),
     };
     if (audio?.path) {
       args.background_audio = audio.path;
@@ -525,6 +532,11 @@
       <label>FPS <input type="number" min="1" max="60" bind:value={fps} /></label>
       <label>Seconds / image <input type="number" min="0.5" step="0.5" bind:value={secondsPerImage} /></label>
       <label>Transition (s) <input type="number" min="0" step="0.25" bind:value={transitionSeconds} /></label>
+      <label class="wide">Codec
+        <select bind:value={codec}>
+          {#each CODEC_OPTIONS as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+        </select>
+      </label>
     </div>
   {/if}
 
@@ -697,6 +709,19 @@
   }
   .advanced input {
     width: 56px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--fl-hairline);
+    background: var(--fl-canvas);
+    color: var(--fl-text);
+    font-size: 12px;
+  }
+  .advanced label.wide {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .advanced select {
     padding: 4px 6px;
     border-radius: 6px;
     border: 1px solid var(--fl-hairline);
