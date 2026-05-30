@@ -13,8 +13,9 @@
     aspect?: string;
     progress?: number;
     videoUrl?: string;
+    onError?: () => void;
   }
-  let { posterUrl, result, rendering, aspect = '16 / 9', progress = 0, videoUrl }: Props = $props();
+  let { posterUrl, result, rendering, aspect = '16 / 9', progress = 0, videoUrl, onError }: Props = $props();
 
   function fmt(sec: number): string {
     const s = Math.max(0, Math.round(sec));
@@ -27,7 +28,7 @@
 <div class="stage" style="aspect-ratio: {aspect};">
   {#if videoUrl}
     <!-- The rendered reel, played inline via a data URI from read_media. -->
-    <video class="poster" src={videoUrl} poster={posterUrl} controls playsinline></video>
+    <video class="poster" src={videoUrl} poster={posterUrl} controls playsinline onerror={onError}></video>
   {:else if posterUrl}
     <img class="poster" src={posterUrl} alt="preview" />
   {:else}

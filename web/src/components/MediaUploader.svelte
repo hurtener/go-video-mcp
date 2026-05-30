@@ -12,7 +12,7 @@
     note: string;
     roots: string[];
     items: IngestedItem[];
-    onPick: (files: FileList) => void;
+    onPick: (files: File[]) => void;
     onUseInStudio: () => void;
     onClear: () => void;
   }
@@ -29,13 +29,18 @@
   }
   function onFiles(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
-    if (input.files && input.files.length) onPick(input.files);
+    // Snapshot the FileList to a real array NOW: resetting input.value (so the
+    // same file can be re-picked) clears the live FileList, and the async
+    // ingest loop would otherwise see only the last/no files.
+    const files = input.files ? Array.from(input.files) : [];
     input.value = '';
+    if (files.length) onPick(files);
   }
   function onDrop(e: DragEvent) {
     e.preventDefault();
     dragging = false;
-    if (e.dataTransfer?.files?.length) onPick(e.dataTransfer.files);
+    const files = e.dataTransfer?.files ? Array.from(e.dataTransfer.files) : [];
+    if (files.length) onPick(files);
   }
   function fmtSize(n?: number): string {
     if (!n) return '';

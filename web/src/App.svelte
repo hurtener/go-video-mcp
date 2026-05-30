@@ -77,6 +77,8 @@
   let result = $state<CinematicOutput | null>(null);
   let videoUrl = $state<string | undefined>();
   let videoTooLarge = $state(false);
+  let videoBlocked = $state(false);
+  let videoBlobUrl: string | undefined; // the blob: URL we created, for revocation
   let lastFetched: string | undefined;
   let displayMode = $state<DisplayMode>('inline');
   let connected = $state(false);
@@ -184,15 +186,54 @@
   });
 
   async function fetchPreview(path: string) {
+    revokeVideoBlob();
     videoUrl = undefined;
     videoTooLarge = false;
+    videoBlocked = false;
     try {
       const res = await bridge.callTool<unknown, ReadMediaOutput>('read_media', { path });
       const out = res.structuredContent;
-      if (out?.truncated) videoTooLarge = true;
-      else if (out?.data_uri) videoUrl = out.data_uri;
+      if (out?.truncated) {
+        videoTooLarge = true;
+      } else if (out?.data_uri) {
+        // Play the reel from a blob: URL, not the raw data: URI. A host's
+        // App-iframe CSP often blocks data: in media-src (Claude/playground do)
+        // but allows blob: — the same scheme our image previews use. If even
+        // blob: is blocked, the <video> error handler degrades to the saved
+        // path (onVideoError).
+        videoBlobUrl = dataUriToBlobUrl(out.data_uri);
+        videoUrl = videoBlobUrl;
+      }
     } catch {
       /* keep the poster — playback is best-effort */
+    }
+  }
+
+  // dataUriToBlobUrl decodes a "data:<mime>;base64,<…>" string into a blob: URL.
+  function dataUriToBlobUrl(dataUri: string): string {
+    const comma = dataUri.indexOf(',');
+    const header = dataUri.slice(0, comma);
+    const b64 = dataUri.slice(comma + 1);
+    const mime = header.slice(5, header.indexOf(';') >= 0 ? header.indexOf(';') : undefined) || 'video/mp4';
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], { type: mime }));
+  }
+
+  function revokeVideoBlob() {
+    if (videoBlobUrl) {
+      URL.revokeObjectURL(videoBlobUrl);
+      videoBlobUrl = undefined;
+    }
+  }
+
+  // The host CSP blocked even the blob: stream — drop the player, show the path.
+  function onVideoError() {
+    if (videoUrl) {
+      videoBlocked = true;
+      videoUrl = undefined;
+      revokeVideoBlob();
     }
   }
 
@@ -217,6 +258,7 @@
     for (const c of clips) if (c.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(c.previewUrl);
     for (const u of uploaderItems) if (u.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(u.previewUrl);
     if (audio?.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(audio.previewUrl);
+    revokeVideoBlob();
   });
 
   // --- actions -------------------------------------------------------------
@@ -296,15 +338,23 @@
 
   // Ingest dropped files onto the server (ingest_media), tracking each row's
   // status so the uploader card shows progress and the resolved server path.
-  async function uploadFiles(files: FileList) {
-    for (const file of Array.from(files)) {
-      const item: IngestedItem = {
+  async function uploadFiles(files: File[]) {
+    // Append every row up front in ONE synchronous write so all selected files
+    // show immediately as "uploading" — then ingest them one at a time. (A
+    // per-file append inside the async loop is fragile; the host also handles
+    // App-initiated tool calls best one at a time.)
+    const rows = files.map((file) => ({
+      file,
+      item: {
         id: nextId(),
         name: file.name,
         previewUrl: URL.createObjectURL(file),
-        status: 'uploading',
-      };
-      uploaderItems = [...uploaderItems, item];
+        status: 'uploading' as const,
+      } satisfies IngestedItem,
+    }));
+    uploaderItems = [...uploaderItems, ...rows.map((r) => r.item)];
+
+    for (const { file, item } of rows) {
       try {
         const res = await bridge.callTool<unknown, IngestMediaOutput>('ingest_media', {
           filename: file.name,
@@ -458,7 +508,7 @@
       onClear={clearUploads}
     />
   {:else}
-  <Preview {posterUrl} {result} {rendering} {aspect} {videoUrl} />
+  <Preview {posterUrl} {result} {rendering} {aspect} {videoUrl} onError={onVideoError} />
 
   {#if connecting}
     <p class="hint" data-state="loading">
@@ -530,6 +580,8 @@
     <div class="banner warn"><Icon name="alert" size={15} /> {result.warnings.join(' · ')}</div>
   {:else if videoTooLarge && result}
     <div class="banner warn"><Icon name="alert" size={15} /> Reel rendered — too large to preview inline; saved to {result.render.output_path}</div>
+  {:else if videoBlocked && result}
+    <div class="banner warn"><Icon name="alert" size={15} /> Reel rendered — this host blocks inline video; saved to {result.render.output_path}</div>
   {/if}
 
   <button class="render" onclick={render} disabled={rendering || readyClips.length === 0}>
