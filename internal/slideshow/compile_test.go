@@ -430,7 +430,7 @@ func TestCompile_FitBlur(t *testing.T) {
 	for _, want := range []string{
 		"[0:v]split=2[bg0][fg0]",
 		"boxblur=20:1",
-		"force_original_aspect_ratio=decrease,fps=30[fg0]",
+		"force_original_aspect_ratio=decrease,fps=30[fgo0]",
 		"[bgo0][fgo0]overlay=(W-w)/2:(H-h)/2,setsar=1,format=yuv420p[v0]",
 	} {
 		if !strings.Contains(g, want) {
